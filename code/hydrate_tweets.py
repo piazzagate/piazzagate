@@ -1,24 +1,64 @@
 from twarc import Twarc
+from pathlib import Path
+from tqdm import tqdm
 import sqlite3
 import pandas
+import subprocess
 
-consumer_key=""
-consumer_secret=""
-access_token=""
-access_token_secret=""
+# ---------------------------------------------------------------------- #
+#                             EXTRACT IDS                                #
+# ---------------------------------------------------------------------- #
 
-t = Twarc(consumer_key, consumer_secret, access_token, access_token_secret)
+DATA_DIR = Path(__file__).parent.parent / 'data'
+PORTION = 1 / 50  # only extract a fraction of the data due to rate limits
 
-# Create connection to database
+def get_ids(tweet_files):
+    for tweet_file in tweet_files:
+        df = pd.read_csv(tweet_file, header=None)
+        ids = list(df.iloc[:, 0])
+        ids = ids[:int(len(ids) * PORTION)]
+
+        for id in ids:
+            yield id
+
+def count_lines(filename):
+    out = subprocess.Popen(['wc', '-l', str(filename.absolute())],
+                           stdout=subprocess.PIPE,
+                           stderr=subprocess.STDOUT
+                           ).communicate()[0]
+    return int(int(out.decode("utf-8").strip().split(' ')[0]) * PORTION)
+
+def get_total_count(tweet_files):
+    total = 0
+    for tweet_file in tweet_files:
+        total += count_lines(tweet_file)
+
+    return total
+
+tweet_files = (DATA_DIR / 'raw' / 'tweets').glob('*.csv')
+print("Counting total number of IDs to hydrate")
+total_count = get_total_count(tweet_files)
+
+print("Beginning hydration")
+ids = get_ids(tweet_files)
+
+for id in tqdm(ids, total=total_count):
+    pass
+
+# can we save these into a txt file?
+
+# ---------------------------------------------------------------------- #
+#                          HYDRATE TWEET IDS                             #
+# ---------------------------------------------------------------------- #
+
+t = Twarc()
+
 conn = sqlite3.connect('data.db')
 c = conn.cursor()
-
-# Delete tables if they exist
 c.execute('DROP TABLE IF EXISTS "tweets";')
 c.execute('DROP TABLE IF EXISTS "authors";')
 c.execute('DROP TABLE IF EXISTS "hashtags";')
 
-#TODO: Create tables in the database and add data to it. REMEMBER TO COMMIT
 tweet_table_cmd = """
     CREATE TABLE tweets (
         id INT PRIMARY KEY NOT NULL,
@@ -47,19 +87,18 @@ author_table_cmd = """
         tweet_cnt INT
     );
 """
-
 hashtag_table_cmd = """
     CREATE TABLE hashtags (
         tweet_id INT FOREIGN KEY,
         hashtag TEXT
     );
 """
-
 c.execute(tweet_table_cmd)
 c.execute(author_table_cmd)
+c.execute(hashtag_table_cmd)
 conn.commit()
 
-for tweet in t.hydrate(open('tweet_ids.csv')): # EDIT TO POINT TO LIST OF TWEET IDS
+for tweet in t.hydrate(open('ids.txt')):
     id = tweet['id']
     text = tweet['text']
     created_at = tweet['created_at']
