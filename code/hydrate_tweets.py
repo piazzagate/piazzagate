@@ -59,7 +59,7 @@ c.execute(tweet_table_cmd)
 c.execute(author_table_cmd)
 conn.commit()
 
-for tweet in t.hydrate(open('tweet_ids.csv')):
+for tweet in t.hydrate(open('tweet_ids.csv')): # EDIT TO POINT TO LIST OF TWEET IDS
     id = tweet['id']
     text = tweet['text']
     created_at = tweet['created_at']
