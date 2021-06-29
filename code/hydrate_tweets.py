@@ -3,31 +3,27 @@ import pandas as pd
 from tqdm import tqdm
 import subprocess
 from twarc import Twarc
+from pathlib import Path
 import sqlite3
+import subprocess
 
 DATA_DIR = Path(__file__).parent.parent / 'data'
 PORTION = 1 / 50  # only extract a fraction of the data due to rate limits
 
 # setting up database
-
-
-t = Twarc()
-
 print("Setting up database")
 # Create connection to database
-conn = sqlite3.connect(DATA_DIR / 'data.db')
+conn = sqlite3.connect(DATA_DIR / 'processed' / 'data.db')
 c = conn.cursor()
-
-# Delete tables if they exist
 c.execute('DROP TABLE IF EXISTS "tweets";')
-c.execute('DROP TABLE IF EXISTS "authors";')
+c.execute('DROP TABLE IF EXISTS "users";')
 c.execute('DROP TABLE IF EXISTS "hashtags";')
 
 tweet_table_cmd = """
     CREATE TABLE tweets (
         id INT PRIMARY KEY NOT NULL,
-        user_id INT FOREIGN KEY,
-        text TEXT, 
+        user_id INT,
+        text TEXT,
         created_at TEXT,
         place_id TEXT,
         in_reply_to_status_id INT,
@@ -39,11 +35,12 @@ tweet_table_cmd = """
         retweet_count INT,
         favorite_count INT,
         lang TEXT,
+        FOREIGN KEY(user_id) REFERENCES users(id)
     );
 """
-author_table_cmd = """
-    CREATE TABLE authors (
-        author_id INT PRIMARY KEY NOT NULL,
+user_table_cmd = """
+    CREATE TABLE users (
+        id INT PRIMARY KEY NOT NULL,
         location TEXT,
         verified INT,
         follower_cnt INT,
@@ -51,17 +48,25 @@ author_table_cmd = """
         tweet_cnt INT
     );
 """
-
 hashtag_table_cmd = """
     CREATE TABLE hashtags (
-        tweet_id INT FOREIGN KEY,
-        hashtag TEXT
+        tweet_id INT,
+        hashtag TEXT,
+        FOREIGN KEY(tweet_id) REFERENCES tweets(id)
     );
 """
-
 c.execute(tweet_table_cmd)
-c.execute(author_table_cmd)
+c.execute(user_table_cmd)
+c.execute(hashtag_table_cmd)
 conn.commit()
+
+
+# ---------------------------------------------------------------------- #
+#                             EXTRACT IDS                                #
+# ---------------------------------------------------------------------- #
+
+DATA_DIR = Path(__file__).parent.parent / 'data'
+PORTION = 1 / 50  # only extract a fraction of the data due to rate limits
 
 
 def get_ids(tweet_files):
@@ -91,15 +96,20 @@ def get_total_count(tweet_files):
 
 
 tweet_files = (DATA_DIR / 'raw' / 'tweets').glob('*.csv')
+ids = get_ids(tweet_files)
 print("Counting total number of IDs to hydrate")
-total_count = get_total_count(tweet_files)
+total_count = 1000  # get_total_count(tweet_files)
+
+
+# ---------------------------------------------------------------------- #
+#                          HYDRATE TWEET IDS                             #
+# ---------------------------------------------------------------------- #
 
 print("Beginning hydration")
-ids = get_ids(tweet_files)
-
+t = Twarc()
 for tweet in tqdm(t.hydrate(ids), total=total_count):
     id = tweet['id']
-    text = tweet['text']
+    text = tweet['full_text']
     created_at = tweet['created_at']
     place_id = None
     if tweet['place']:
@@ -128,7 +138,7 @@ for tweet in tqdm(t.hydrate(ids), total=total_count):
               (id, user_id, text, created_at, place_id, in_reply_to_status_id, in_reply_to_user_id,
                quoted_status_id, retweeted_status, quote_count, reply_count, retweet_count, favorite_count, lang,))
 
-    c.execute('INSERT INTO authors VALUES (?, ?, ?, ?, ?, ?);',
+    c.execute('INSERT INTO users VALUES (?, ?, ?, ?, ?, ?);',
               (user_id, user_location, user_verified, user_follower_cnt, user_list_cnt, user_tweet_cnt))
 
     for h in hashtags:
