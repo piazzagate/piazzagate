@@ -1,6 +1,6 @@
 from pathlib import Path
-import pandas as pd
 from tqdm import tqdm
+import pandas as pd
 import subprocess
 from twarc import Twarc
 from pathlib import Path
@@ -9,6 +9,10 @@ import subprocess
 
 DATA_DIR = Path(__file__).parent.parent / 'data'
 PORTION = 1 / 50  # only extract a fraction of the data due to rate limits
+
+# ---------------------------------------------------------------------- #
+#                           DATABASE SETUP                               #
+# ---------------------------------------------------------------------- #
 
 # setting up database
 print("Setting up database")
@@ -26,12 +30,10 @@ tweet_table_cmd = """
         text TEXT,
         created_at TEXT,
         place_id TEXT,
+        has_coords INT,
         in_reply_to_status_id INT,
         in_reply_to_user_id INT,
-        quoted_status_id INT,
-        retweeted_status INT,
-        quote_count INT,
-        reply_count INT,
+        is_quote_status INT,
         retweet_count INT,
         favorite_count INT,
         lang TEXT,
@@ -50,7 +52,7 @@ user_table_cmd = """
 """
 hashtag_table_cmd = """
     CREATE TABLE hashtags (
-        tweet_id INT,
+        tweet_id INT NOT NULL,
         hashtag TEXT,
         FOREIGN KEY(tweet_id) REFERENCES tweets(id)
     );
@@ -64,9 +66,6 @@ conn.commit()
 # ---------------------------------------------------------------------- #
 #                             EXTRACT IDS                                #
 # ---------------------------------------------------------------------- #
-
-DATA_DIR = Path(__file__).parent.parent / 'data'
-PORTION = 1 / 50  # only extract a fraction of the data due to rate limits
 
 
 def get_ids(tweet_files):
@@ -94,12 +93,10 @@ def get_total_count(tweet_files):
 
     return total
 
-
+print("Getting IDs to hydrate")
 tweet_files = (DATA_DIR / 'raw' / 'tweets').glob('*.csv')
 ids = get_ids(tweet_files)
-print("Counting total number of IDs to hydrate")
 total_count = 1000  # get_total_count(tweet_files)
-
 
 # ---------------------------------------------------------------------- #
 #                          HYDRATE TWEET IDS                             #
@@ -108,24 +105,24 @@ total_count = 1000  # get_total_count(tweet_files)
 print("Beginning hydration")
 t = Twarc()
 for tweet in tqdm(t.hydrate(ids), total=total_count):
+    # tweet info
     id = tweet['id']
     text = tweet['full_text']
     created_at = tweet['created_at']
+    has_coords = 0
+    if tweet['coordinates']: has_coords = 1
     place_id = None
     if tweet['place']:
         place_id = tweet['place']['id']
-    # original tweet's id
     in_reply_to_status_id = tweet['in_reply_to_status_id']
-    in_reply_to_user_id = tweet['in_reply_to_user_id']  # original user's id
-    quoted_status_id = tweet['quoted_status_id']
-    retweeted_status = tweet['retweeted_status']
-    quote_count = tweet['quote_count']
-    reply_count = tweet['reply_count']
+    in_reply_to_user_id = tweet['in_reply_to_user_id']
+    is_quote_status = tweet['is_quote_status']
     retweet_count = tweet['retweet_count']
     favorite_count = tweet['favorite_count']
     lang = tweet['lang']
     hashtags = tweet['entities']['hashtags']
 
+    # tweet author info
     user = tweet['user']
     user_id = user['id']
     user_location = user['location']
@@ -134,14 +131,23 @@ for tweet in tqdm(t.hydrate(ids), total=total_count):
     user_list_cnt = user['listed_count']
     user_tweet_cnt = user['statuses_count']
 
-    c.execute('INSERT INTO tweets VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);',
-              (id, user_id, text, created_at, place_id, in_reply_to_status_id, in_reply_to_user_id,
-               quoted_status_id, retweeted_status, quote_count, reply_count, retweet_count, favorite_count, lang,))
+    c.execute('INSERT INTO tweets VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);',
+              (id, user_id, text, created_at, place_id, has_coords, in_reply_to_status_id, in_reply_to_user_id,
+               is_quote_status, retweet_count, favorite_count, lang))
 
-    c.execute('INSERT INTO users VALUES (?, ?, ?, ?, ?, ?);',
-              (user_id, user_location, user_verified, user_follower_cnt, user_list_cnt, user_tweet_cnt))
-
+    # SQL query to check if user exists in the users table
+    cmd = f"SELECT COUNT(1) FROM users WHERE id = {user_id};"
+    c.execute(cmd)
+    user_exists = False
+    for row in c:
+        if row[0] == 1: user_exists = True
+    
+    if not(user_exists):
+        c.execute('INSERT INTO users VALUES (?, ?, ?, ?, ?, ?);',
+                (user_id, user_location, user_verified, user_follower_cnt, user_list_cnt, user_tweet_cnt))
+    
     for h in hashtags:
-        c.execute('INSERT INTO hashtags VALUES (?, ?);', (id, h))
+        c.execute('INSERT INTO hashtags VALUES (?, ?);', (id, h['text']))
+    
+    conn.commit()  
 
-conn.commit()
