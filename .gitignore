@@ -129,5 +129,8 @@ dmypy.json
 .pyre/
 **/.DS_Store
 **/__MACOSX
-data/raw/**/*.csv
+**/*.csv
+**/*.txt
 **/*.db
+**/*.zip
+**/*.db-journal
