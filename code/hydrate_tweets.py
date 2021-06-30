@@ -94,16 +94,16 @@ def get_total_count(tweet_files):
     return total
 
 print("Getting IDs to hydrate")
-tweet_files = (DATA_DIR / 'raw' / 'tweets').glob('*.csv')
+tweet_files = list((DATA_DIR / 'raw' / 'tweets').glob('*.csv'))
 ids = get_ids(tweet_files)
-total_count = 1000  # get_total_count(tweet_files)
+total_count = get_total_count(tweet_files)
 
 # ---------------------------------------------------------------------- #
 #                          HYDRATE TWEET IDS                             #
 # ---------------------------------------------------------------------- #
 
-print("Beginning hydration")
 t = Twarc()
+i = 0
 for tweet in tqdm(t.hydrate(ids), total=total_count):
     # tweet info
     id = tweet['id']
@@ -131,6 +131,16 @@ for tweet in tqdm(t.hydrate(ids), total=total_count):
     user_list_cnt = user['listed_count']
     user_tweet_cnt = user['statuses_count']
 
+    # Do not insert tweet whose id already exists
+    cmd = f"SELECT COUNT(1) FROM tweets WHERE id = {id};"
+    c.execute(cmd)
+    tweet_exists = False
+    for row in c:
+        if row[0] == 1: tweet_exists = True
+    
+    if tweet_exists:
+        continue
+        
     c.execute('INSERT INTO tweets VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);',
               (id, user_id, text, created_at, place_id, has_coords, in_reply_to_status_id, in_reply_to_user_id,
                is_quote_status, retweet_count, favorite_count, lang))
@@ -149,5 +159,7 @@ for tweet in tqdm(t.hydrate(ids), total=total_count):
     for h in hashtags:
         c.execute('INSERT INTO hashtags VALUES (?, ?);', (id, h['text']))
     
-    conn.commit()  
-
+    i += 1
+    
+    if i % 1000 == 0:
+        conn.commit()
