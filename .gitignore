@@ -134,3 +134,5 @@ dmypy.json
 **/*.db
 **/*.zip
 **/*.db-journal
+**/*.json
+**/*.tsv
