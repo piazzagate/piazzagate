@@ -73,8 +73,6 @@ def count_lines(filename):
 def get_ids(preprocess=False):
     with open(SOURCE_FOLDER / f'{DATASET}.tsv', 'r') as f:
         for i, line in enumerate(f.readlines()):
-            if i == 1500:
-                return
             id, city, state = line.split('\t')
             if preprocess:
                 if i % 1000 == 0:
