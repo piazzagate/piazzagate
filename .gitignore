@@ -129,10 +129,10 @@ dmypy.json
 .pyre/
 **/.DS_Store
 **/__MACOSX
-**/*.csv
-**/*.txt
-**/*.db
-**/*.zip
-**/*.db-journal
-**/*.json
-**/*.tsv
+data/**/*.csv
+data/**/*.txt
+data/**/*.db
+data/**/*.zip
+data/**/*.db-journal
+data/**/*.json
+data/**/*.tsv

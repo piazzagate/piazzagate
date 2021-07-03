@@ -1,0 +1,14 @@
+[
+  {
+    "id": "avax",
+    "url": "https://github.com/gmuric/avax-tweets-dataset"
+  },
+  {
+    "id": "covid_tweets",
+    "url": "https://ieee-dataport.org/open-access/coronavirus-covid-19-geo-tagged-tweets-dataset"
+  },
+  {
+    "id": "geocov19",
+    "url": "https://ieee-dataport.org/open-access/geocov19-dataset-hundreds-millions-multilingual-covid-19-tweets-location-information"
+  }
+]

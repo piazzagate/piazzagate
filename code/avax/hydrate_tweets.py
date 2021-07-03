@@ -1,10 +1,8 @@
 from tqdm import tqdm
 import pandas as pd
-import subprocess
 from twarc import Twarc
 from pathlib import Path
 import sqlite3
-import subprocess
 
 DATA_DIR = Path(__file__).parent.parent.parent / 'data'
 DATASET = 'avax'
