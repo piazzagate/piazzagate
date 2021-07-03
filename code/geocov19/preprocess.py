@@ -7,7 +7,7 @@ DATASET = 'geocov19'
 
 SOURCE_FOLDER = DATA_DIR / 'raw' / DATASET
 
-with open(SOURCE_FOLDER / 'tweets.tsv', 'w') as fout:
+with open(SOURCE_FOLDER / f'{DATASET}.tsv', 'w') as fout:
     files = SOURCE_FOLDER.glob('*.json')
     for filename in files:
         with open(filename, 'r') as f:

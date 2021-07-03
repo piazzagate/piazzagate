@@ -6,7 +6,7 @@ import sqlite3
 import subprocess
 
 DATA_DIR = Path(__file__).parent.parent.parent / 'data'
-DATASET = 'geocov19'
+DATASET = 'covid19'
 
 SOURCE_FOLDER = DATA_DIR / 'raw' / DATASET
 
@@ -20,7 +20,7 @@ def setup_database(filename=f'{DATASET}.db'):
         CREATE TABLE IF NOT EXISTS tweets (
             id INT PRIMARY KEY NOT NULL,
             state STRING,
-            county STRING,
+            city STRING,
             user_id INT,
             text TEXT,
             created_at TEXT,
@@ -73,7 +73,9 @@ def count_lines(filename):
 def get_ids(preprocess=False):
     with open(SOURCE_FOLDER / f'{DATASET}.tsv', 'r') as f:
         for i, line in enumerate(f.readlines()):
-            id, county, state = line.split('\t')
+            if i == 1500:
+                return
+            id, city, state = line.split('\t')
             if preprocess:
                 if i % 1000 == 0:
                     conn.commit()
@@ -89,7 +91,7 @@ def get_ids(preprocess=False):
                     continue
 
                 c.execute('INSERT INTO tweets VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);',
-                          (id, state, county, None, None, None, None, None, None, None, None, None, None, None, None, None))
+                          (id, state, city, None, None, None, None, None, None, None, None, None, None, None, None, None))
 
             yield id
         conn.commit()
@@ -97,7 +99,7 @@ def get_ids(preprocess=False):
 
 def hydrate_dataset():
     total_count = sum(1 for _ in get_ids(preprocess=True))
-    total_count = count_lines(SOURCE_FOLDER / 'tweets.tsv')
+    total_count = count_lines(SOURCE_FOLDER / f'{DATASET}.tsv')
     ids = get_ids()
     t = Twarc()
 
