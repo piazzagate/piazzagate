@@ -3,7 +3,7 @@ import pandas as pd
 from twarc import Twarc
 from pathlib import Path
 import sqlite3
-import json
+import subprocess
 
 DATA_DIR = Path(__file__).parent.parent.parent / 'data'
 DATASET = 'geocov19'
@@ -62,23 +62,42 @@ def setup_database(filename=f'{DATASET}.db'):
     return c, conn
 
 
-locations = {}
+def count_lines(filename):
+    out = subprocess.Popen(['wc', '-l', str(filename.absolute())],
+                           stdout=subprocess.PIPE,
+                           stderr=subprocess.STDOUT
+                           ).communicate()[0]
+    return int(out.decode("utf-8").strip().split(' ')[0])
 
 
 def get_ids(preprocess=False):
     with open(SOURCE_FOLDER / 'tweets.tsv', 'r') as f:
-        for line in f.readlines():
+        for i, line in enumerate(f.readlines()):
             id, county, state = line.split('\t')
             if preprocess:
-                locations[id] = {
-                    'state': state,
-                    'county': county
-                }
+                if i % 1000 == 0:
+                    conn.commit()
+                # Do not insert tweet whose id already exists
+                cmd = f"SELECT COUNT(1) FROM tweets WHERE id = {id};"
+                c.execute(cmd)
+                tweet_exists = False
+                for row in c:
+                    if row[0] == 1:
+                        tweet_exists = True
+
+                if tweet_exists:
+                    continue
+
+                c.execute('INSERT INTO tweets VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);',
+                          (id, state, county, None, None, None, None, None, None, None, None, None, None, None, None, None))
+
             yield id
+        conn.commit()
 
 
 def hydrate_dataset():
     total_count = sum(1 for _ in get_ids(preprocess=True))
+    total_count = count_lines(SOURCE_FOLDER / 'tweets.tsv')
     ids = get_ids()
     t = Twarc()
 
@@ -93,8 +112,6 @@ def hydrate_dataset():
         lon, lat = None, None
         if tweet['coordinates']:
             lon, lat = tweet['coordinates']['coordinates']
-        else:
-            continue  # we don't want tweets with no coords from the geotagged dataset
         place_id, place_name = None, None
         if tweet['place']:
             place_id = tweet['place']['id']
@@ -106,7 +123,6 @@ def hydrate_dataset():
         favorite_count = tweet['favorite_count']
         lang = tweet['lang']
         hashtags = tweet['entities']['hashtags']
-        county, state = locations[id]['county'], locations[id]['state']
 
         # tweet author info
         user = tweet['user']
@@ -118,19 +134,13 @@ def hydrate_dataset():
         user_tweet_cnt = user['statuses_count']
 
         # Do not insert tweet whose id already exists
-        cmd = f"SELECT COUNT(1) FROM tweets WHERE id = {id};"
-        c.execute(cmd)
-        tweet_exists = False
-        for row in c:
-            if row[0] == 1:
-                tweet_exists = True
-
-        if tweet_exists:
-            continue
-
-        c.execute('INSERT INTO tweets VALUES (?, ?, ?, ?, ?, ?, ?, ?, ? , ?, ?, ?, ?, ?, ?, ?);',
-                  (id, state, county, user_id, text, created_at, place_id, place_name, lon, lat, in_reply_to_status_id, in_reply_to_user_id,
-                   is_quote_status, retweet_count, favorite_count, lang))
+        cmd = """
+            UPDATE tweets 
+            SET user_id=?,text=?,created_at=?,place_id=?,place_name=?,lon=?,lat=?,in_reply_to_status_id=?,in_reply_to_user_id=?,is_quote_status=?,retweet_count=?,favorite_count=?,lang=? 
+            WHERE id=?
+        """
+        c.execute(cmd, (user_id, text, created_at, place_id, place_name, lon, lat, in_reply_to_status_id, in_reply_to_user_id,
+                        is_quote_status, retweet_count, favorite_count, lang, id))
 
         # SQL query to check if user exists in the users table
         cmd = f"SELECT COUNT(1) FROM users WHERE id = {user_id};"
@@ -146,6 +156,8 @@ def hydrate_dataset():
 
         for h in hashtags:
             c.execute('INSERT INTO hashtags VALUES (?, ?);', (id, h['text']))
+
+    conn.commit()
 
 
 # setting up database
