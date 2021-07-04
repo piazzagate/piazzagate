@@ -24,13 +24,8 @@ def setup_database(filename=f'{DATASET}.db'):
             user_id INT,
             text TEXT,
             created_at TEXT,
-            place_id TEXT,
-            place_name TEXT,
-            lon REAL,
-            lat REAL,
-            in_reply_to_status_id INT,
-            in_reply_to_user_id INT,
-            is_quote_status INT,
+            is_retweet INT,
+            original_tweet_id INT,
             retweet_count INT,
             favorite_count INT,
             lang TEXT,
@@ -88,8 +83,8 @@ def get_ids(preprocess=False):
                 if tweet_exists:
                     continue
 
-                c.execute('INSERT INTO tweets VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);',
-                          (id, state, city, None, None, None, None, None, None, None, None, None, None, None, None, None))
+                c.execute('INSERT INTO tweets VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);',
+                          (id, state, city, None, None, None, None, None, None, None, None))
 
             yield id
         conn.commit()
@@ -107,18 +102,10 @@ def hydrate_dataset():
 
         # tweet info
         id = tweet['id']
-        text = tweet['full_text']
+        is_retweet = 'retweeted_status' in tweet  # check if tweet is a retweet
+        text = tweet['retweeted_status']['full_text'] if is_retweet else tweet['full_text']
+        original_tweet_id = tweet['retweeted_status']['id'] if is_retweet else None
         created_at = tweet['created_at']
-        lon, lat = None, None
-        if tweet['coordinates']:
-            lon, lat = tweet['coordinates']['coordinates']
-        place_id, place_name = None, None
-        if tweet['place']:
-            place_id = tweet['place']['id']
-            place_name = tweet['place']['full_name']
-        in_reply_to_status_id = tweet['in_reply_to_status_id']
-        in_reply_to_user_id = tweet['in_reply_to_user_id']
-        is_quote_status = tweet['is_quote_status']
         retweet_count = tweet['retweet_count']
         favorite_count = tweet['favorite_count']
         lang = tweet['lang']
@@ -136,11 +123,11 @@ def hydrate_dataset():
         # Do not insert tweet whose id already exists
         cmd = """
             UPDATE tweets 
-            SET user_id=?,text=?,created_at=?,place_id=?,place_name=?,lon=?,lat=?,in_reply_to_status_id=?,in_reply_to_user_id=?,is_quote_status=?,retweet_count=?,favorite_count=?,lang=? 
+            SET user_id=?,text=?,created_at=?,is_retweet=?,original_tweet_id=?,retweet_count=?,favorite_count=?,lang=? 
             WHERE id=?
         """
-        c.execute(cmd, (user_id, text, created_at, place_id, place_name, lon, lat, in_reply_to_status_id, in_reply_to_user_id,
-                        is_quote_status, retweet_count, favorite_count, lang, id))
+        c.execute(cmd, (user_id, text, created_at, is_retweet,
+                  original_tweet_id, retweet_count, favorite_count, lang, id))
 
         # SQL query to check if user exists in the users table
         cmd = f"SELECT COUNT(1) FROM users WHERE id = {user_id};"
@@ -157,6 +144,8 @@ def hydrate_dataset():
         for h in hashtags:
             c.execute('INSERT INTO hashtags VALUES (?, ?);', (id, h['text']))
 
+    cmd = 'DELETE FROM tweets WHERE text IS NULL'
+    c.execute(cmd)
     conn.commit()
 
 
