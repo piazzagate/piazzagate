@@ -86,7 +86,7 @@ join_tweets_counties = """
     SELECT id, c.fips, user_id, t.text, created_at, is_retweet, original_tweet_id, retweet_count, favorite_count, lang
     FROM tweets AS t
     JOIN counties AS c
-    ON c.state = t.state AND c.city = t.city;
+    ON c.state = t.state AND LOWER(c.city) = LOWER(t.city);
 """
 c.execute(join_tweets_counties)
 conn.commit()
