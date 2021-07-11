@@ -261,11 +261,11 @@ def load_election_data():
 
     election_data = dict.fromkeys(election_header)
 
-    # Create vote keys for each county
+    # Create fields for election data for each county
     for county in COUNTY_DATA.values():
         county.update(election_data)
 
-    # Populate election data
+    # Update each county
     for _, row in df.iterrows():
         state = row[0][0] + row[0][1:].lower()
         county_name = row[1]
