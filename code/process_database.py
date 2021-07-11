@@ -34,6 +34,9 @@ lower_hashtags = """
 """
 c.execute(lower_hashtags)
 
+c.execute("ALTER TABLE users RENAME COLUMN follower_cnt TO follower_count;")
+c.execute("ALTER TABLE users RENAME COLUMN list_cnt TO list_count;")
+c.execute("ALTER TABLE users RENAME COLUMN tweet_cnt TO tweet_count;")
 conn.commit()
 
 
@@ -181,11 +184,13 @@ conn.commit()
 
 
 # Combine each county with its total_population
-join_county_demographics = """CREATE TABLE counties_with_population AS
-SELECT c.fips, c.county, c.city, c.state, d.total_population
-FROM counties as c
-LEFT OUTER JOIN demographics as d
-ON c.fips = d.fips"""
+join_county_demographics = """
+    CREATE TABLE counties_with_population AS
+    SELECT c.fips, c.county, c.city, c.state, d.total_population
+    FROM counties as c
+    LEFT OUTER JOIN demographics as d
+    ON c.fips = d.fips
+"""
 c.execute(join_county_demographics)
 conn.commit()
 
@@ -222,7 +227,7 @@ conn.commit()
 c.execute('DROP TABLE IF EXISTS "tweets_with_fips";')
 join_tweets_counties = """
     CREATE TABLE tweets_with_fips AS 
-    SELECT id, c.county, c.fips, user_id, t.text, created_at, is_retweet, original_tweet_id, retweet_count, favorite_count, lang
+    SELECT id, c.fips, c.city, user_id, t.text, created_at, is_retweet, original_tweet_id, retweet_count, favorite_count, lang
     FROM tweets AS t
     JOIN unique_cities AS c
     ON c.state = t.state AND LOWER(c.city) = LOWER(t.city)
@@ -252,8 +257,8 @@ c.execute('DROP TABLE IF EXISTS "updated_tweets";')
 updated_tweets_table = """
     CREATE TABLE IF NOT EXISTS updated_tweets (
         id INT PRIMARY KEY NOT NULL,
-        county TEXT,
         fips INT,
+        city TEXT,
         user_id INT,
         text TEXT,
         created_at TEXT,
@@ -310,22 +315,32 @@ conn.commit()
 #                         ADD PROCESSED COVID TABLE                                #
 # -------------------------------------------------------------------------------- #
 
-
 COVID_DIR = DATA_DIR / 'processed' / COVID_FILE
 
 attach_covid_db = 'ATTACH DATABASE ' + '\'' + str(COVID_DIR) + '\'' + ' AS covid_db;'
 c.execute(attach_covid_db)
 conn.commit()
 
-create_covid_table = """CREATE TABLE IF NOT EXISTS covid(
-    date TEXT, county TEXT, fips INT, cases INT, deaths INT, series_complete_yes INT, series_complete_pop_pct REAL,
-    FOREIGN KEY(fips) REFERENCES demographics(fips)
-    );"""
+create_covid_table = """
+    CREATE TABLE IF NOT EXISTS covid(
+        date TEXT, 
+        county TEXT, 
+        fips INT, 
+        cases INT, 
+        deaths INT, 
+        series_complete_yes INT, 
+        series_complete_pop_pct REAL,
+        PRIMARY KEY (date, fips),
+        FOREIGN KEY(fips) REFERENCES demographics(fips)
+);"""
 c.execute(create_covid_table)
 conn.commit()
 
 populate_covid = """INSERT INTO covid SELECT * FROM covid_db.covid"""
-c.execute(populate_covid )
+c.execute(populate_covid)
+c.execute("ALTER TABLE covid DROP COLUMN county;")
+c.execute("ALTER TABLE covid RENAME COLUMN series_complete_yes TO vaccinated_count;")
+c.execute("ALTER TABLE covid RENAME COLUMN series_complete_pop_pct TO vaccinated_percent;")
 conn.commit()
 
 conn.close()
