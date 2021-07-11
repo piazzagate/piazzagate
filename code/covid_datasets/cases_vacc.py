@@ -1,4 +1,3 @@
-from datetime import datetime
 from pathlib import Path
 import pandas as pd 
 import sqlite3
@@ -14,8 +13,6 @@ from sodapy import Socrata
 cases_data = pd.read_csv('https://raw.githubusercontent.com/nytimes/covid-19-data/master/us-counties.csv')
 
 # Get total number of cases and deaths up to July 2nd
-total_cases_data = cases_data[cases_data["date"] == "2021-07-02"].drop("date", 1)
-
 
 DATA_DIR = Path(__file__).parent.parent.parent / 'data'
 
@@ -24,13 +21,12 @@ conn = sqlite3.connect(DATA_DIR / 'processed' / 'covid_data.db')
 c = conn.cursor()
 
 
-# Delete tables if they exist
-c.execute('DROP TABLE IF EXISTS "cases_by_date";')
-c.execute('DROP TABLE IF EXISTS "total_cases";')
+# Delete table if it already exists
+c.execute('DROP TABLE IF EXISTS "cases";')
 
 
-cases_by_date = """
-    CREATE TABLE cases_by_date (
+cases_table = """
+    CREATE TABLE cases (
         date TEXT, 
         county TEXT, 
         state TEXT, 
@@ -40,26 +36,11 @@ cases_by_date = """
     );
 """
 
-total_cases = """
-    CREATE TABLE total_cases (  
-        county TEXT, 
-        state TEXT, 
-        fips INT, 
-        cases INT, 
-        deaths INT
-    );
-"""
-
-
-c.execute(cases_by_date)
-c.execute(total_cases)
-
+c.execute(cases_table)
 conn.commit()
 
 # Convert dataframe to sql table
-cases_data.to_sql('cases_by_date', conn, if_exists='append', index=False)
-total_cases_data.to_sql('total_cases', conn, if_exists='append', index=False)
-
+cases_data.to_sql('cases', conn, if_exists='append', index=False)
 conn.commit()
 
 
@@ -82,19 +63,16 @@ vaccinations_data = pd.DataFrame.from_records(results)[["date", "fips", "recip_c
 # Remove time from date
 vaccinations_data["date"] = vaccinations_data["date"].apply(lambda x: x[:10])
 
-# Get total vaccinations up to July 2nd
-total_vaccinations_data = vaccinations_data[vaccinations_data["date"] == "2021-07-02"].drop("date", 1)
 
 
 # Delete table if it already exists
-c.execute('DROP TABLE IF EXISTS "county_vaccinations";')
-c.execute('DROP TABLE IF EXISTS "total_vaccinations";')
+c.execute('DROP TABLE IF EXISTS "vaccinations";')
 
 
-county_vaccinations = """
-    CREATE TABLE county_vaccinations (
+vaccinations_table = """
+    CREATE TABLE vaccinations (
         date TEXT, 
-        fips INT, 
+        fips INT NOT NULL, 
         recip_county TEXT, 
         recip_state TEXT, 
         series_complete_yes INT,
@@ -102,24 +80,36 @@ county_vaccinations = """
     );
 """
 
-total_vaccinations = """
-    CREATE TABLE total_vaccinations (
-        fips INT, 
-        recip_county TEXT, 
-        recip_state TEXT, 
-        series_complete_yes INT,
-        series_complete_pop_pct FLOAT
-    );
-"""
-
-c.execute(county_vaccinations)
-c.execute(total_vaccinations)
-
+c.execute(vaccinations_table)
 conn.commit()
 
-vaccinations_data.to_sql('county_vaccinations', conn, if_exists='append', index=False)
-total_vaccinations_data.to_sql('total_vaccinations', conn, if_exists='append', index=False)
+vaccinations_data.to_sql('vaccinations', conn, if_exists='append', index=False)
+conn.commit()
 
+c.execute('DROP TABLE IF EXISTS "covid";')
+
+# Combine cases and vaccinations
+covid_table = """
+    CREATE TABLE covid AS
+        SELECT c.date, c.county, c.fips, c.cases, c.deaths, v.series_complete_yes, v.series_complete_pop_pct
+        FROM cases AS c
+        LEFT OUTER JOIN vaccinations AS v
+        ON c.date = v.date AND c.fips = v.fips 
+        WHERE c.fips IS NOT NULL;"""
+c.execute(covid_table)
 conn.commit()
 
 
+# Replace vaccinations' null values with 0
+replace_nulls = """
+    UPDATE covid 
+        SET
+            series_complete_yes = COALESCE(series_complete_yes, 0),
+            series_complete_pop_pct = COALESCE(series_complete_pop_pct, 0)"""
+
+c.execute(replace_nulls)
+c.execute('DROP TABLE IF EXISTS "cases";')
+c.execute('DROP TABLE IF EXISTS "vaccinations";')
+
+conn.commit()
+conn.close
