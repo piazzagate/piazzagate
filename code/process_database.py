@@ -227,7 +227,7 @@ conn.commit()
 c.execute('DROP TABLE IF EXISTS "tweets_with_fips";')
 join_tweets_counties = """
     CREATE TABLE tweets_with_fips AS 
-    SELECT id, c.fips, c.city, user_id, t.text, created_at, is_retweet, original_tweet_id, retweet_count, favorite_count, lang
+    SELECT id, c.fips, t.city, user_id, t.text, created_at, is_retweet, original_tweet_id, retweet_count, favorite_count, lang
     FROM tweets AS t
     JOIN unique_cities AS c
     ON c.state = t.state AND LOWER(c.city) = LOWER(t.city)
@@ -324,12 +324,11 @@ conn.commit()
 create_covid_table = """
     CREATE TABLE IF NOT EXISTS covid(
         date TEXT, 
-        county TEXT, 
         fips INT, 
         cases INT, 
         deaths INT, 
-        series_complete_yes INT, 
-        series_complete_pop_pct REAL,
+        vaccinated_count INT, 
+        vaccinated_percent REAL,
         PRIMARY KEY (date, fips),
         FOREIGN KEY(fips) REFERENCES demographics(fips)
 );"""
@@ -338,9 +337,6 @@ conn.commit()
 
 populate_covid = """INSERT INTO covid SELECT * FROM covid_db.covid"""
 c.execute(populate_covid)
-c.execute("ALTER TABLE covid DROP COLUMN county;")
-c.execute("ALTER TABLE covid RENAME COLUMN series_complete_yes TO vaccinated_count;")
-c.execute("ALTER TABLE covid RENAME COLUMN series_complete_pop_pct TO vaccinated_percent;")
 conn.commit()
 
 conn.close()
