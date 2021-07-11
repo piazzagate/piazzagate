@@ -1,3 +1,4 @@
+from numpy import diag_indices_from
 import pandas as pd
 from pathlib import Path
 import sqlite3
@@ -13,10 +14,11 @@ def setup_database(filename=f'{DATASET}.db'):
 
     counties_table_cmd = """
         CREATE TABLE IF NOT EXISTS county_data (
-            fips_code TEXT PRIMARY KEY NOT NULL,
+            fips_code INT PRIMARY KEY NOT NULL,
             county TEXT,
             state TEXT,
 
+            total_population INT,
             percent_male REAL,
             percent_female REAL,
             percent_age_10_to_14 REAL,
@@ -85,7 +87,13 @@ def setup_database(filename=f'{DATASET}.db'):
             percent_naturalized_US_citizen REAL,
             percent_not_US_citizen REAL,
             percent_households_with_computer REAL,
-            percent_households_with_Internet REAL
+            percent_households_with_Internet REAL,
+
+            percent_votes_democrat REAL,
+            percent_votes_republican REAL,
+            percent_votes_libertarian REAL,
+            percent_votes_green REAL,
+            percent_votes_other REAL
         );
     """
     c.execute(counties_table_cmd)
@@ -97,11 +105,12 @@ def load_demographic_housing_data():
     path = DATA_DIR / 'raw' /  'census' / 'demographic_housing.csv'
     df = pd.read_csv(path)
     df = df.iloc[:,
-        [0, 1, 8, 12, 28, 32, 36, 40, 44, 48, 52, 56, 60, 64,
+        [0, 1, 2, 8, 12, 28, 32, 36, 40, 44, 48, 52, 56, 60, 64,
         68, 70, 284, 308, 312, 316, 320, 324, 328, 332, 342]]
     demographic_housing_header = [
             'county',
             'state',
+            'total_population',
             'percent_male',
             'percent_female',
             'percent_age_10_to_14',
@@ -127,12 +136,15 @@ def load_demographic_housing_data():
             'total_housing_units']
 
     for _, row in df.iloc[1:, :].iterrows():
-        fips_code = row[0][-5:]
+        fips_code = int(row[0][-5:])
 
         county_state = row[1]
         demographic_housing_vals = county_state.split(', ')
 
-        for datum in row[2:-1]:
+        total_pop = int(row[2])
+        demographic_housing_vals.append(total_pop)
+
+        for datum in row[3:-1]:
             # Each datum is a percent
             demographic_housing_vals.append(float(datum))
 
@@ -161,7 +173,7 @@ def load_economic_characteristics_data():
             'percent_people_income_below_poverty_line']
 
     for _, row in df.iloc[1:, :].iterrows():
-        fips_code = row[0][-5:]
+        fips_code = int(row[0][-5:])
         economic_charact_vals = []
 
         for idx in range(1, len(row)):
@@ -219,7 +231,7 @@ def load_social_characteristics_data():
         'percent_households_with_Internet']
 
     for _, row in df.iloc[1:, :].iterrows():
-        fips_code = row[0][-5:]
+        fips_code = int(row[0][-5:])
         social_charact_vals = []
 
         for datum in row[1:]:
@@ -232,12 +244,69 @@ def load_social_characteristics_data():
 
         COUNTY_DATA[fips_code].update(social_charact_data)
 
-def hydrate_database():
+def load_election_data():
+    path = DATA_DIR / 'raw' / 'census' / 'pres_election.csv'
+
+    df = pd.read_csv(path)
+    # 2020 election
+    df = df.loc[df['year'] == 2020]
+    df = df.loc[:, ['state', 'county_name', 'county_fips', 'party', 'candidatevotes', 'totalvotes']]
+
+    election_header = [
+        'percent_votes_democrat',
+        'percent_votes_republican',
+        'percent_votes_libertarian',
+        'percent_votes_green',
+        'percent_votes_other']
+
+    election_data = dict.fromkeys(election_header)
+
+    # Create vote keys for each county
+    for county in COUNTY_DATA.values():
+        county.update(election_data)
+
+    # Populate election data
+    for _, row in df.iterrows():
+        state = row[0][0] + row[0][1:].lower()
+        county_name = row[1]
+
+        # Fips code for District of Columbia is null in MIT dataset
+        if pd.isna(row[2]):
+            fips_code = 11001
+        # Fips code for Oglala Lakota County is incorrect in MIT dataset
+        elif row[2] == 46113:
+            fips_code = 46102
+        else:
+            fips_code = int(row[2])
+
+        party = row[3]
+        percent = round(row[4] / row[5], 2) * 100
+
+        if fips_code not in COUNTY_DATA:
+            county_attributes = next(iter(COUNTY_DATA.items()))[1].keys()
+            county_not_in_census = dict.fromkeys(county_attributes)
+
+            COUNTY_DATA[fips_code] = county_not_in_census
+            
+            COUNTY_DATA[fips_code]['county'] = county_name
+            COUNTY_DATA[fips_code]['state'] = state
+
+        if party == 'DEMOCRAT':
+            COUNTY_DATA[fips_code]['percent_votes_democrat'] = percent
+        elif party == 'REPUBLICAN':
+            COUNTY_DATA[fips_code]['percent_votes_republican'] = percent
+        elif party == 'LIBERTARIAN':
+            COUNTY_DATA[fips_code]['percent_votes_libertarian'] = percent
+        elif party == 'OTHER':
+            COUNTY_DATA[fips_code]['percent_votes_other'] = percent
+
+def populate_database():
     for county in COUNTY_DATA.items():
         fips_code = county[0]
         county_name = county[1]['county']
         state = county[1]['state']
 
+        total_population = county[1]['total_population']
         percent_male = county[1]['percent_male']
         percent_female = county[1]['percent_female']
         percent_age_10_to_14 = county[1]['percent_age_10_to_14']
@@ -307,6 +376,12 @@ def hydrate_database():
         percent_not_US_citizen = county[1]['percent_not_US_citizen']
         percent_households_with_computer = county[1]['percent_households_with_computer']
         percent_households_with_Internet = county[1]['percent_households_with_Internet']
+        
+        percent_votes_democrat = county[1]['percent_votes_democrat']
+        percent_votes_republican = county[1]['percent_votes_republican']
+        percent_votes_libertarian = county[1]['percent_votes_libertarian']
+        percent_votes_green = county[1]['percent_votes_green']
+        percent_votes_other = county[1]['percent_votes_other']
 
         c.execute('INSERT INTO county_data VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ' +
                                                   '?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ' +
@@ -314,10 +389,12 @@ def hydrate_database():
                                                   '?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ' +
                                                   '?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ' +
                                                   '?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ' +
-                                                  '?, ?, ?, ?, ?, ?, ?, ?, ?, ?);', 
+                                                  '?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ' +
+                                                  '?, ?, ?, ?, ?, ?);',
                                                   (fips_code,
                                                    county_name,
                                                    state,
+                                                   total_population,
                                                    percent_male,
                                                    percent_female,
                                                    percent_age_10_to_14,
@@ -384,7 +461,12 @@ def hydrate_database():
                                                    percent_naturalized_US_citizen,
                                                    percent_not_US_citizen,
                                                    percent_households_with_computer,
-                                                   percent_households_with_Internet))
+                                                   percent_households_with_Internet,  
+                                                   percent_votes_democrat,
+                                                   percent_votes_republican,
+                                                   percent_votes_libertarian,
+                                                   percent_votes_green,
+                                                   percent_votes_other))
     conn.commit()
 
 # setting up database
@@ -395,6 +477,7 @@ print('Loading data')
 load_demographic_housing_data()
 load_economic_characteristics_data()
 load_social_characteristics_data()
+load_election_data()
 
 print('Populating database')
-hydrate_database()
+populate_database()
