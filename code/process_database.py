@@ -2,10 +2,13 @@ from pathlib import Path
 import sqlite3
 import shutil
 import pandas as pd
+from sodapy import Socrata
 from datetime import datetime
 
 DATA_DIR = Path(__file__).parent.parent / 'data'
 TWEETS_FILE = 'covid19_sample.db'
+COVID_DATA_FILE = 'covid_data.db'
+COUNTY_DATA_FILE = 'county_data.db'
 DB_FILE = 'processed.db'
 
 # ---------------------------------------------------------------------- #
@@ -38,7 +41,7 @@ conn.commit()
 #                         CREATE COUNTIES TABLE                          #
 # ---------------------------------------------------------------------- #
 
-county_fips = pd.read_csv(DATA_DIR / 'raw' / 'counties' / 'ZIP-COUNTY-FIPS_2018-03.csv')[['STCOUNTYFP','CITY','STATE']].drop_duplicates()
+county_fips = pd.read_csv(DATA_DIR / 'raw' / 'counties' / 'ZIP-COUNTY-FIPS_2018-03.csv')[['STCOUNTYFP','CITY','STATE','COUNTYNAME']].drop_duplicates()
 # Dataset downloaded from here: https://data.world/niccolley/us-zipcode-to-county-state/workspace/file?filename=ZIP-COUNTY-FIPS_2018-03.csv
 # You will need to sign up before accessing the dataset
 
@@ -62,7 +65,8 @@ counties_table_cmd = """
     CREATE TABLE IF NOT EXISTS counties (
         STCOUNTYFP INT NOT NULL,
         CITY STRING, 
-        STATE STRING
+        STATE STRING,
+        COUNTYNAME STRING
     );
 """
 c.execute(counties_table_cmd)
@@ -73,7 +77,10 @@ county_fips.to_sql('counties', conn, if_exists='append', index=False)
 c.execute("ALTER TABLE counties RENAME COLUMN STCOUNTYFP TO fips;")
 c.execute("ALTER TABLE counties RENAME COLUMN CITY TO city;")
 c.execute("ALTER TABLE counties RENAME COLUMN STATE TO state;")
+c.execute("ALTER TABLE counties RENAME COLUMN COUNTYNAME TO name;")
 conn.commit()
+
+
 
 # ---------------------------------------------------------------------- #
 #                          ADD FIPS TO TWEETS                            #
@@ -83,10 +90,10 @@ conn.commit()
 c.execute('DROP TABLE IF EXISTS "tweets_with_fips";')
 join_tweets_counties = """
     CREATE TABLE IF NOT EXISTS tweets_with_fips AS 
-    SELECT id, c.fips, user_id, t.text, created_at, is_retweet, original_tweet_id, retweet_count, favorite_count, lang
+    SELECT id, c.fips, c.name, t.state, t.city, user_id, t.text, created_at, is_retweet, original_tweet_id, retweet_count, favorite_count, lang
     FROM tweets AS t
     JOIN counties AS c
-    ON c.state = t.state AND LOWER(c.city) = LOWER(t.city);
+    ON LOWER(c.state) = LOWER(t.state) AND LOWER(c.city) = LOWER(t.city);
 """
 c.execute(join_tweets_counties)
 conn.commit()
@@ -95,7 +102,7 @@ conn.commit()
 c.execute('DROP TABLE IF EXISTS "unique_tweets_fips";')
 find_dupl_cities = """
     CREATE TABLE IF NOT EXISTS unique_tweets_fips AS
-    SELECT *, ROW_NUMBER() OVER (PARTITION BY id) AS RN
+    SELECT *, ROW_NUMBER() OVER (PARTITION BY id ORDER BY fips) AS RN
     FROM tweets_with_fips;
 """
 c.execute(find_dupl_cities)
@@ -116,7 +123,7 @@ conn.commit()
 
 
 # ---------------------------------------------------------------------- #
-#                       UPDATE CREATED_AT COLUMN                         #
+#                   UPDATE TWEETS(CREATED_AT) COLUMN                     #
 # ---------------------------------------------------------------------- #
 
 c.execute('DROP TABLE IF EXISTS "updated_tweets";')
@@ -156,16 +163,15 @@ for row in c:
 
 # Insert entries from the tweets table into the
 # updated_tweets table with the updated date
-c2 = conn.cursor()
+c1 = conn.cursor()
 c.execute("SELECT * FROM tweets")
 i = 0
 for row in c:
     #print(row[0], row[1], row[2], row[3], created_at[i], row[5], row[6], row[7], row[8], row[9])
-    c2.execute('INSERT INTO updated_tweets VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);', 
+    c1.execute('INSERT INTO updated_tweets VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);', 
                 (row[0], row[1], row[2], row[3], created_at[i], row[5], row[6], row[7], row[8], row[9]))
-    conn.commit()
     i += 1
-    
+conn.commit() 
 
 # Clean up intermediary tables
 c.execute('DROP TABLE IF EXISTS "tweets";')
@@ -176,4 +182,154 @@ c.execute("ALTER TABLE updated_tweets RENAME TO tweets;")
 c.execute("DROP TABLE IF EXISTS 'updated_tweets';")
 conn.commit()
 
+# ---------------------------------------------------------------------- #
+#                    ADD COVID TABLE TO DATABASE                         #
+# ---------------------------------------------------------------------- #
+
+conn2 = sqlite3.connect(DATA_DIR / 'processed' / COVID_DATA_FILE)
+c2 = conn2.cursor()
+
+# Create covid table
+c.execute('DROP TABLE IF EXISTS "covid";')
+covid_table = """
+    CREATE TABLE covid (
+        date TEXT,
+        county TEXT,
+        fips INT,
+        cases INT,
+        deaths INT,
+        series_complete_yes INT,
+        series_complete_pop_pct INT,
+        FOREIGN KEY(fips) REFERENCES counties(fips)
+    );
+"""
+c.execute(covid_table)
+conn.commit()
+
+c2.execute("SELECT * FROM covid;")
+for row in c2:
+    c.execute('INSERT INTO covid VALUES (?, ?, ?, ?, ?, ?, ?);', 
+                (row[0], row[1], row[2], row[3], row[4], row[5], row[6]))
+conn.commit()
+
+
+
+# ---------------------------------------------------------------------- #
+#                    ADD COUNTY DATA TABLE TO DATABASE                   #
+# ---------------------------------------------------------------------- #
+
+conn3 = sqlite3.connect(DATA_DIR / 'processed' / COUNTY_DATA_FILE)
+c3 = conn3.cursor()
+
+# Create covid table
+c.execute('DROP TABLE IF EXISTS "county_data";')
+county_data_table = """
+    CREATE TABLE IF NOT EXISTS county_data (
+        fips_code INT PRIMARY KEY NOT NULL,
+        county TEXT,
+        state TEXT,
+
+        total_population INT,
+        percent_male REAL,
+        percent_female REAL,
+        percent_age_10_to_14 REAL,
+        percent_age_15_to_19 REAL,
+        percent_age_20_to_24 REAL,
+        percent_age_25_to_34 REAL,
+        percent_age_35_to_44 REAL,
+        percent_age_45_to_54 REAL,
+        percent_age_55_to_59 REAL,
+        percent_age_60_to_64 REAL,
+        percent_age_65_to_74 REAL,
+        percent_age_75_to_84 REAL,
+        percent_age_85_and_older REAL,
+        median_age REAL,
+        percent_hispanic_or_latino REAL,
+        percent_white REAL,
+        percent_black_or_african_american REAL,
+        percent_american_indian_and_alaska_native REAL,
+        percent_asian REAL,
+        percent_native_hawaiian_and_other_pacific_islander REAL,
+        percent_other_race REAL,
+        percent_two_or_more_races REAL,
+        total_housing_units INT,
+
+        unemployment_rate REAL,
+        median_household_income INT,
+        mean_household_income INT,
+        per_capita_income INT,
+        percent_health_insurance REAL,
+        percent_private_health_insurance REAL,
+        percent_public_coverage REAL,
+        percent_no_health_insurance REAL,
+        percent_families_income_below_poverty_line REAL,
+        percent_people_income_below_poverty_line REAL,
+
+        percent_married_couple_family REAL,
+        percent_cohabiting_couple REAL,
+        percent_male_householder REAL,
+        percent_female_householder REAL,
+        avg_household_size REAL,
+        avg_family_size REAL,
+        percent_males_never_married REAL,
+        percent_males_now_married_separated REAL,
+        percent_males_separated REAL,
+        percent_males_widowed REAL,
+        percent_males_divorced REAL,
+        percent_females_never_married REAL,
+        percent_females_now_married_separated REAL,
+        percent_females_separated REAL,
+        percent_females_widowed REAL,
+        percent_females_divorced REAL,
+        percent_education_less_than_9th_grade REAL,
+        percent_9th_to_12th_grade_no_diploma REAL,
+        percent_high_school_graduate REAL,
+        percent_some_college_no_degree REAL,
+        percent_associates_degree REAL,
+        percent_bachelors_degree REAL,
+        percent_graduate_or_professional_degree REAL,
+        percent_high_school_graduate_or_higher REAL,
+        percent_bachelors_degree_or_higher REAL,
+        percent_civilian_veteran REAL,
+        percent_with_disability REAL,
+        percent_native_born REAL,
+        percent_born_in_US REAL,
+        percent_foreign_born REAL,
+        percent_naturalized_US_citizen REAL,
+        percent_not_US_citizen REAL,
+        percent_households_with_computer REAL,
+        percent_households_with_Internet REAL,
+
+        percent_votes_democrat REAL,
+        percent_votes_republican REAL,
+        percent_votes_libertarian REAL,
+        percent_votes_green REAL,
+        percent_votes_other REAL
+    );
+"""
+c.execute(county_data_table)
+conn.commit()
+
+c3.execute("SELECT * FROM county_data;")
+for row in c3:
+    c.execute('INSERT INTO county_data VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ' +
+                                              '?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ' +
+                                              '?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ' +
+                                              '?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ' +
+                                              '?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ' +
+                                              '?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ' +
+                                              '?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ' +
+                                              '?, ?, ?, ?, ?, ?);',
+            (row[0],  row[1],  row[2],  row[3],  row[4],  row[5],  row[6],  row[7],  row[8],  row[9],
+            row[10], row[11], row[12], row[13], row[14], row[15], row[16], row[17], row[18], row[19],
+            row[20], row[21], row[22], row[23], row[24], row[25], row[26], row[27], row[28], row[29],
+            row[30], row[31], row[32], row[33], row[34], row[35], row[36], row[37], row[38], row[39],
+            row[40], row[41], row[42], row[43], row[44], row[45], row[46], row[47], row[48], row[49],
+            row[50], row[51], row[52], row[53], row[54], row[55], row[56], row[57], row[58], row[59],
+            row[60], row[61], row[62], row[63], row[64], row[65], row[66], row[67], row[68], row[69],
+            row[70], row[71], row[72], row[73], row[74], row[75]))
+conn.commit()
+
 conn.close()
+conn2.close()
+conn3.close()
