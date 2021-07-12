@@ -1,4 +1,3 @@
-from numpy import diag_indices_from
 import pandas as pd
 from pathlib import Path
 import sqlite3
@@ -6,6 +5,7 @@ import sqlite3
 DATA_DIR = Path(__file__).parent.parent.parent / 'data'
 DATASET = 'counties'
 COUNTY_DATA = {}
+ALASKAN_DISTRICTS = {}
 
 def setup_database(filename=f'{DATASET}.db'):
     # Create connection to database
@@ -250,7 +250,7 @@ def load_election_data():
     df = pd.read_csv(path)
     # 2020 election
     df = df.loc[df['year'] == 2020]
-    df = df.loc[:, ['state', 'county_name', 'county_fips', 'party', 'candidatevotes', 'totalvotes']]
+    df = df.loc[:, ['county_fips', 'party', 'candidatevotes', 'totalvotes']]
 
     election_header = [
         'percent_votes_democrat',
@@ -259,46 +259,172 @@ def load_election_data():
         'percent_votes_green',
         'percent_votes_other']
 
-    election_data = dict.fromkeys(election_header)
+    election_data = dict.fromkeys(election_header, 0.0)
 
     # Create fields for election data for each county
     for county in COUNTY_DATA.values():
         county.update(election_data)
 
+    prev_fips = None
+    prev_party = None
+    candidate_votes = 0
+
     # Update each county
     for _, row in df.iterrows():
-        state = row[0][0] + row[0][1:].lower()
-        county_name = row[1]
-
         # Fips code for District of Columbia is null in MIT dataset
-        if pd.isna(row[2]):
+        if pd.isna(row[0]):
             fips_code = 11001
         # Fips code for Oglala Lakota County is incorrect in MIT dataset
-        elif row[2] == 46113:
+        elif row[0] == 46113:
             fips_code = 46102
         else:
-            fips_code = int(row[2])
+            fips_code = int(row[0])
 
-        party = row[3]
-        percent = round(row[4] / row[5], 2) * 100
+        party = row[1]
+        total_votes = row[3]
 
-        if fips_code not in COUNTY_DATA:
-            county_attributes = next(iter(COUNTY_DATA.items()))[1].keys()
-            county_not_in_census = dict.fromkeys(county_attributes)
+        # District in Alaska
+        if 2001 <= fips_code <= 2040:
+            percent = round(row[2] / total_votes * 100, 2)
+            if fips_code not in ALASKAN_DISTRICTS:
+                ALASKAN_DISTRICTS[fips_code] = election_data
 
-            COUNTY_DATA[fips_code] = county_not_in_census
-            
-            COUNTY_DATA[fips_code]['county'] = county_name
-            COUNTY_DATA[fips_code]['state'] = state
+            if party == 'DEMOCRAT':
+                ALASKAN_DISTRICTS[fips_code]['percent_votes_democrat'] = percent
+            elif party == 'REPUBLICAN':
+                ALASKAN_DISTRICTS[fips_code]['percent_votes_republican'] = percent
+            elif party == 'LIBERTARIAN':
+                ALASKAN_DISTRICTS[fips_code]['percent_votes_libertarian'] = percent
+            elif party == 'GREEN':
+                ALASKAN_DISTRICTS[fips_code]['percent_votes_green'] = percent
+            elif party == 'OTHER':
+                ALASKAN_DISTRICTS[fips_code]['percent_votes_other'] = percent
 
-        if party == 'DEMOCRAT':
-            COUNTY_DATA[fips_code]['percent_votes_democrat'] = percent
-        elif party == 'REPUBLICAN':
-            COUNTY_DATA[fips_code]['percent_votes_republican'] = percent
-        elif party == 'LIBERTARIAN':
-            COUNTY_DATA[fips_code]['percent_votes_libertarian'] = percent
-        elif party == 'OTHER':
-            COUNTY_DATA[fips_code]['percent_votes_other'] = percent
+        # Ignore District 99 and Kansas City
+        elif fips_code != 2099 and fips_code != 36000:
+            if ((prev_fips is None and prev_party is None) or
+                (prev_fips == fips_code and prev_party == party)):
+                candidate_votes += row[2]
+
+            elif prev_fips == fips_code and prev_party != party:
+                percent = round(candidate_votes / total_votes * 100, 2)
+
+                if prev_party == 'DEMOCRAT':
+                    COUNTY_DATA[fips_code]['percent_votes_democrat'] = percent
+                elif prev_party == 'REPUBLICAN':
+                    COUNTY_DATA[fips_code]['percent_votes_republican'] = percent
+                elif prev_party == 'LIBERTARIAN':
+                    COUNTY_DATA[fips_code]['percent_votes_libertarian'] = percent
+                elif prev_party == 'GREEN':
+                    COUNTY_DATA[fips_code]['percent_votes_green'] = percent
+                elif prev_party == 'OTHER':
+                    COUNTY_DATA[fips_code]['percent_votes_other'] = percent
+
+                candidate_votes = row[2]
+
+            elif prev_fips != fips_code:
+                percent = round(candidate_votes / prev_total * 100, 2)
+    
+                if prev_party == 'DEMOCRAT':
+                    COUNTY_DATA[prev_fips]['percent_votes_democrat'] = percent
+                elif prev_party == 'REPUBLICAN':
+                    COUNTY_DATA[prev_fips]['percent_votes_republican'] = percent
+                elif prev_party == 'LIBERTARIAN':
+                    COUNTY_DATA[prev_fips]['percent_votes_libertarian'] = percent
+                elif prev_party == 'GREEN':
+                    COUNTY_DATA[prev_fips]['percent_votes_green'] = percent
+                elif prev_party == 'OTHER':
+                    COUNTY_DATA[prev_fips]['percent_votes_other'] = percent
+
+                candidate_votes = row[2]
+
+            prev_fips = fips_code
+            prev_party = party
+            prev_total = total_votes
+
+    # Update last row
+    percent = round(candidate_votes / prev_total * 100, 2)
+    
+    if prev_party == 'DEMOCRAT':
+        COUNTY_DATA[prev_fips]['percent_votes_democrat'] = percent
+    elif prev_party == 'REPUBLICAN':
+        COUNTY_DATA[prev_fips]['percent_votes_republican'] = percent
+    elif prev_party == 'LIBERTARIAN':
+        COUNTY_DATA[prev_fips]['percent_votes_libertarian'] = percent
+    elif prev_party == 'GREEN':
+        COUNTY_DATA[prev_fips]['percent_votes_green'] = percent
+    elif prev_party == 'OTHER':
+        COUNTY_DATA[prev_fips]['percent_votes_other'] = percent
+
+def populate_election_data_for_Alaskan_boroughs():
+    boroughs = [2013, 2016, 2020, 2050, 2060, 2068, 2070, 2090, 2100, 2105, 
+                2110, 2122, 2130, 2150, 2158, 2164, 2170, 2180, 2185, 2188, 
+                2195, 2198, 2220, 2230, 2240, 2261, 2275, 2282, 2290]
+
+    for borough in boroughs:
+        if borough in [2013, 2016, 2060, 2070, 2164]:
+            districts = [2037]
+        elif borough == 2020:
+            districts = list(range(2012, 2029))
+        elif borough == 2050:
+            districts = [2037, 2038]
+        elif borough == 2068:
+            districts = [2006]
+        elif borough == 2090:
+            districts = list(range(2001, 2007))
+        elif borough in [2100, 2230]:
+            districts = [2033]
+        elif borough == 2105:
+            districts = [2033, 2035]            
+        elif borough == 2110:
+            districts = [2033, 2034]
+        elif borough == 2122:
+            districts = list(range(2029, 2033))
+        elif borough in [2130, 2275]:
+            districts = [2036]
+        elif borough in [2150, 2282]:
+            districts = [2032]
+        elif borough == 2158:
+            districts = [2038, 2039]
+        elif borough == 2170:
+            districts = list(range(2007, 2013))
+        elif borough == 2180:
+            districts = [2039]
+        elif borough in [2185, 2188]:
+            districts = [2040]
+        elif borough in [2195, 2220]:
+            districts = [2035]
+        elif borough == 2198:
+            districts = [2035, 2036]
+        elif borough in [2240, 2261]:
+            districts = [2006, 2009]
+        elif borough == 2290:
+            districts = [2006, 2037, 2039, 2040]
+
+        per_democrat = 0
+        per_republican = 0
+        per_libertarian = 0
+        per_green = 0
+        per_other = 0
+
+        for district in districts:
+            per_democrat += ALASKAN_DISTRICTS[district]['percent_votes_democrat']
+            per_republican += ALASKAN_DISTRICTS[district]['percent_votes_republican']
+            per_libertarian += ALASKAN_DISTRICTS[district]['percent_votes_libertarian']
+            per_green += ALASKAN_DISTRICTS[district]['percent_votes_green']
+            per_other += ALASKAN_DISTRICTS[district]['percent_votes_other']
+
+        per_democrat = round(per_democrat / len(districts), 2)
+        per_republican = round(per_republican / len(districts), 2)
+        per_libertarian = round(per_libertarian / len(districts), 2)
+        per_green = round(per_green / len(districts), 2)
+        per_other = round(per_other / len(districts), 2)
+
+        COUNTY_DATA[borough]['percent_votes_democrat'] = per_democrat
+        COUNTY_DATA[borough]['percent_votes_republican'] = per_republican
+        COUNTY_DATA[borough]['percent_votes_libertarian'] = per_libertarian
+        COUNTY_DATA[borough]['percent_votes_green'] = per_green
+        COUNTY_DATA[borough]['percent_votes_other'] = per_other
 
 def populate_database():
     for county in COUNTY_DATA.items():
@@ -478,6 +604,7 @@ load_demographic_housing_data()
 load_economic_characteristics_data()
 load_social_characteristics_data()
 load_election_data()
+populate_election_data_for_Alaskan_boroughs()
 
 print('Populating database')
 populate_database()
