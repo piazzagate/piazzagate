@@ -6,7 +6,7 @@ from datetime import datetime
 
 DATA_DIR = Path(__file__).parent.parent / 'data'
 TWEETS_FILE = 'covid19_sample.db'
-DEMOGRAPHICS_FILE = 'county_data.db'
+DEMOGRAPHICS_FILE = 'counties.db'
 COVID_FILE = 'covid_data.db'
 DB_FILE = 'processed.db'
 
@@ -15,7 +15,8 @@ DB_FILE = 'processed.db'
 # ---------------------------------------------------------------------- #
 
 # Create a connection to the db of scraped tweets with tables [tweets, users, hashtags]
-shutil.copy(DATA_DIR / 'processed' / TWEETS_FILE, DATA_DIR / 'processed' / DB_FILE)
+shutil.copy(DATA_DIR / 'processed' / TWEETS_FILE,
+            DATA_DIR / 'processed' / DB_FILE)
 
 conn = sqlite3.connect(DATA_DIR / 'processed' / DB_FILE)
 c = conn.cursor()
@@ -44,20 +45,21 @@ conn.commit()
 #                         CREATE COUNTIES TABLE                          #
 # ---------------------------------------------------------------------- #
 
-county_fips = pd.read_csv(DATA_DIR / 'raw' / 'counties' / 'ZIP-COUNTY-FIPS_2018-03.csv')[['STCOUNTYFP','CITY','STATE', 'COUNTYNAME']].drop_duplicates()
+county_fips = pd.read_csv(DATA_DIR / 'raw' / 'counties' / 'ZIP-COUNTY-FIPS_2018-03.csv')[
+    ['STCOUNTYFP', 'CITY', 'STATE', 'COUNTYNAME']].drop_duplicates()
 # Dataset downloaded from here: https://data.world/niccolley/us-zipcode-to-county-state/workspace/file?filename=ZIP-COUNTY-FIPS_2018-03.csv
 # You will need to sign up before accessing the dataset
 
 # Dictionary that maps state abbreviation to full name
 states = {
-        'AK': 'Alaska', 'AL': 'Alabama', 'AR': 'Arkansas', 'AS': 'American Samoa', 'AZ': 'Arizona', 'CA': 'California', 'CO': 'Colorado',
-        'CT': 'Connecticut', 'DC': 'District of Columbia', 'DE': 'Delaware', 'FL': 'Florida', 'GA': 'Georgia', 'GU': 'Guam', 'HI': 'Hawaii',
-        'IA': 'Iowa', 'ID': 'Idaho', 'IL': 'Illinois', 'IN': 'Indiana', 'KS': 'Kansas', 'KY': 'Kentucky', 'LA': 'Louisiana', 'MA': 'Massachusetts',
-        'MD': 'Maryland', 'ME': 'Maine', 'MI': 'Michigan', 'MN': 'Minnesota', 'MO': 'Missouri', 'MP': 'Northern Mariana Islands', 'MS': 'Mississippi',
-        'MT': 'Montana', 'NA': 'National', 'NC': 'North Carolina', 'ND': 'North Dakota', 'NE': 'Nebraska', 'NH': 'New Hampshire', 'NJ': 'New Jersey',
-        'NM': 'New Mexico', 'NV': 'Nevada', 'NY': 'New York', 'OH': 'Ohio', 'OK': 'Oklahoma', 'OR': 'Oregon', 'PA': 'Pennsylvania', 'PR': 'Puerto Rico',
-        'RI': 'Rhode Island', 'SC': 'South Carolina', 'SD': 'South Dakota', 'TN': 'Tennessee', 'TX': 'Texas', 'UT': 'Utah', 'VA': 'Virginia',
-        'VI': 'Virgin Islands', 'VT': 'Vermont', 'WA': 'Washington', 'WI': 'Wisconsin', 'WV': 'West Virginia', 'WY': 'Wyoming'
+    'AK': 'Alaska', 'AL': 'Alabama', 'AR': 'Arkansas', 'AS': 'American Samoa', 'AZ': 'Arizona', 'CA': 'California', 'CO': 'Colorado',
+    'CT': 'Connecticut', 'DC': 'District of Columbia', 'DE': 'Delaware', 'FL': 'Florida', 'GA': 'Georgia', 'GU': 'Guam', 'HI': 'Hawaii',
+    'IA': 'Iowa', 'ID': 'Idaho', 'IL': 'Illinois', 'IN': 'Indiana', 'KS': 'Kansas', 'KY': 'Kentucky', 'LA': 'Louisiana', 'MA': 'Massachusetts',
+    'MD': 'Maryland', 'ME': 'Maine', 'MI': 'Michigan', 'MN': 'Minnesota', 'MO': 'Missouri', 'MP': 'Northern Mariana Islands', 'MS': 'Mississippi',
+    'MT': 'Montana', 'NA': 'National', 'NC': 'North Carolina', 'ND': 'North Dakota', 'NE': 'Nebraska', 'NH': 'New Hampshire', 'NJ': 'New Jersey',
+    'NM': 'New Mexico', 'NV': 'Nevada', 'NY': 'New York', 'OH': 'Ohio', 'OK': 'Oklahoma', 'OR': 'Oregon', 'PA': 'Pennsylvania', 'PR': 'Puerto Rico',
+    'RI': 'Rhode Island', 'SC': 'South Carolina', 'SD': 'South Dakota', 'TN': 'Tennessee', 'TX': 'Texas', 'UT': 'Utah', 'VA': 'Virginia',
+    'VI': 'Virgin Islands', 'VT': 'Vermont', 'WA': 'Washington', 'WI': 'Wisconsin', 'WV': 'West Virginia', 'WY': 'Wyoming'
 }
 
 # Convert state from abbreviation to full name
@@ -89,11 +91,11 @@ conn.commit()
 # -------------------------------------------------------------------------------- #
 
 
-
 demographics_dir = DATA_DIR / 'processed' / DEMOGRAPHICS_FILE
 
 # Attach demographics database to processed.db
-attach_demog_db = 'ATTACH DATABASE ' + '\'' + str(demographics_dir) + '\'' + ' AS demog_db;'
+attach_demog_db = 'ATTACH DATABASE ' + '\'' + \
+    str(demographics_dir) + '\'' + ' AS demog_db;'
 c.execute(attach_demog_db)
 conn.commit()
 
@@ -218,7 +220,6 @@ c.execute("DELETE FROM unique_cities WHERE RN<>1")
 conn.commit()
 
 
-
 # -------------------------------------------------------------------------------- #
 #                               ADD FIPS TO TWEETS                                 #
 # -------------------------------------------------------------------------------- #
@@ -295,11 +296,11 @@ c2 = conn.cursor()
 c.execute("SELECT * FROM tweets")
 i = 0
 for row in c:
-    c2.execute('INSERT INTO updated_tweets VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);', 
-                (row[0], row[1], row[2], row[3], row[4], created_at[i], row[6], row[7], row[8], row[9], row[10]))
+    c2.execute('INSERT INTO updated_tweets VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);',
+               (row[0], row[1], row[2], row[3], row[4], created_at[i], row[6], row[7], row[8], row[9], row[10]))
     conn.commit()
     i += 1
-    
+
 
 # Clean up intermediary tables
 c.execute('DROP TABLE IF EXISTS "tweets";')
@@ -317,7 +318,8 @@ conn.commit()
 
 COVID_DIR = DATA_DIR / 'processed' / COVID_FILE
 
-attach_covid_db = 'ATTACH DATABASE ' + '\'' + str(COVID_DIR) + '\'' + ' AS covid_db;'
+attach_covid_db = 'ATTACH DATABASE ' + '\'' + \
+    str(COVID_DIR) + '\'' + ' AS covid_db;'
 c.execute(attach_covid_db)
 conn.commit()
 
