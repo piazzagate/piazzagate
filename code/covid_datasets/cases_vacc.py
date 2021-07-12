@@ -91,7 +91,7 @@ c.execute('DROP TABLE IF EXISTS "covid";')
 # Combine cases and vaccinations
 covid_table = """
     CREATE TABLE covid AS
-        SELECT c.date, c.county, c.fips, c.cases, c.deaths, v.series_complete_yes, v.series_complete_pop_pct
+        SELECT c.date, c.fips, c.cases, c.deaths, v.series_complete_yes, v.series_complete_pop_pct
         FROM cases AS c
         LEFT OUTER JOIN vaccinations AS v
         ON c.date = v.date AND c.fips = v.fips 
