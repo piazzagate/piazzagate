@@ -1,5 +1,5 @@
 from pathlib import Path
-import pandas as pd 
+import pandas as pd
 import sqlite3
 from sodapy import Socrata
 
@@ -10,7 +10,8 @@ from sodapy import Socrata
 
 
 # Read csv file from nytimes dataset, number of cases are ordered by date
-cases_data = pd.read_csv('https://raw.githubusercontent.com/nytimes/covid-19-data/master/us-counties.csv')
+cases_data = pd.read_csv(
+    'https://raw.githubusercontent.com/nytimes/covid-19-data/master/us-counties.csv')
 
 # Get total number of cases and deaths up to July 2nd
 
@@ -44,7 +45,6 @@ cases_data.to_sql('cases', conn, if_exists='append', index=False)
 conn.commit()
 
 
-
 # ---------------------------------------------------------------------- #
 #                     COVID VACCINATIONS BY COUNTY                       #
 # ---------------------------------------------------------------------- #
@@ -55,14 +55,14 @@ client = Socrata("data.cdc.gov",
                  'IIeauhR40yPl8zyK53tOPvlwu')
 
 # Results returned as JSON from API / converted to Python list of dictionaries by sodapy.
-results = client.get("8xkx-amqh", limit = 700000)
+results = client.get("8xkx-amqh", limit=700000)
 
 # Convert to pandas DataFrame, and select needed columns
-vaccinations_data = pd.DataFrame.from_records(results)[["date", "fips", "recip_county", "recip_state", "series_complete_yes", "series_complete_pop_pct"]]
+vaccinations_data = pd.DataFrame.from_records(results)[
+    ["date", "fips", "recip_county", "recip_state", "series_complete_yes", "series_complete_pop_pct"]]
 
 # Remove time from date
 vaccinations_data["date"] = vaccinations_data["date"].apply(lambda x: x[:10])
-
 
 
 # Delete table if it already exists
@@ -112,4 +112,4 @@ c.execute('DROP TABLE IF EXISTS "cases";')
 c.execute('DROP TABLE IF EXISTS "vaccinations";')
 
 conn.commit()
-conn.close
+conn.close()

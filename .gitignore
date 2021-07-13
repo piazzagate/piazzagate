@@ -136,3 +136,4 @@ data/**/*.zip
 data/**/*.db-journal
 data/**/*.json
 data/**/*.tsv
+**/.envrc
