@@ -4,3 +4,4 @@ twarc
 gdown
 googletrans==3.1.0a0
 google-cloud-translate==2.0.1
+seaborn
