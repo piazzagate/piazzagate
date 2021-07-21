@@ -18,8 +18,8 @@ def get_demographic_data(dataset):
 
     # Replace NULL values with 0
     df = pd.read_sql_query(cmd, conn).fillna(0)
-    # Drop fips, county, state, total_population columns
-    df.drop(columns=['fips', 'county', 'state', 'total_population'], inplace=True)
+    # Drop fips, county, state columns
+    df.drop(columns=['fips', 'county', 'state'], inplace=True)
 
     # Normalize columns
     scaler = MinMaxScaler()
@@ -29,7 +29,8 @@ def get_demographic_data(dataset):
     return df
 
 def main():
-    IND_VAR_NAMES = ['percent_male',
+    IND_VAR_NAMES = ['total_population',
+                    'percent_male',
                     'percent_female',
                     'percent_age_10_to_14',
                     'percent_age_15_to_19',

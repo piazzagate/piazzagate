@@ -18,8 +18,8 @@ def get_demographic_data(dataset):
 
     # Replace NULL values with 0
     df = pd.read_sql_query(cmd, conn).fillna(0)
-    # Drop fips, county, state, total_population columns
-    df.drop(columns=['fips', 'county', 'state', 'total_population'], inplace=True)
+    # Drop fips, county, state, columns
+    df.drop(columns=['fips', 'county', 'state'], inplace=True)
 
     # Remove correlated features
     corr_features = set()
@@ -32,6 +32,11 @@ def get_demographic_data(dataset):
                 feat = corr_matrix.columns[i]
                 corr_features.add(feat)
 
+    print(len(corr_features))
+
+    for feat in corr_features:
+        print(feat)
+
     df.drop(columns=corr_features, inplace=True)
 
     # Normalize columns
@@ -42,7 +47,8 @@ def get_demographic_data(dataset):
     return df
 
 def main():
-    IND_VAR_NAMES = ['percent_male',
+    IND_VAR_NAMES = ['total_population',
+                    'percent_male',
                     'percent_age_10_to_14',
                     'percent_age_15_to_19',
                     'percent_age_20_to_24',
@@ -62,7 +68,6 @@ def main():
                     'percent_native_hawaiian_and_other_pacific_islander',
                     'percent_other_race',
                     'percent_two_or_more_races',
-                    'total_housing_units',
                     'unemployment_rate',
                     'median_household_income',
                     'percent_health_insurance',
