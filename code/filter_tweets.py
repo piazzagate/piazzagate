@@ -8,40 +8,56 @@ nltk.download('punkt')
 
 DATA_DIR = Path(__file__).parent.parent / 'data'
 DB_FILE = 'covid19.db'
-KEYWORDS_FILE = 'avax-keywords.txt'
+KEYWORDS_FILE = 'keywords.txt'
 
-plandemic_hashtags = ['plandemic', 'theplandemic', 'covidplandemic', 'plandemic2020', 'plandemicdocumentary', 'plandemichoax', 'endtheplandemic', 'covidplandemic', 
-     'fakeccpplandemic', 'ccpplandemic', 'democratplandemic', 'plandemicchronicles', 'endthecovidplandemicnow', 'covidisaplandemic', 'plandemicnotpandemic',
-     'covid19plandemic', 'plandemic2021']
-scamdemic_hashtags = ['scamdemic', 'scamdemic2020', 'thegreatscamdemic', 'scamdemicisover', 'scamdemic2021']
+plandemic_hashtags = ['plandemic', 'theplandemic', 'covidplandemic', 'plandemic2020', 'plandemicdocumentary', 'plandemichoax', 'endtheplandemic', 'covidplandemic',
+                      'fakeccpplandemic', 'ccpplandemic', 'democratplandemic', 'plandemicchronicles', 'endthecovidplandemicnow', 'covidisaplandemic', 'plandemicnotpandemic',
+                      'covid19plandemic', 'plandemic2021']
+scamdemic_hashtags = ['scamdemic', 'scamdemic2020',
+                      'thegreatscamdemic', 'scamdemicisover', 'scamdemic2021']
 fakenews_hashtags = ['fakenews', 'fakenewscnn', 'fakenewsmedia', 'cnnfakenews', 'cnnisfakenews', 'stopfakenews', 'fakenewsvirus', 'fakenewsalert', 'fakenewsnyt',
-     'fakenewsshitshows', 'coronavirusisfakenews', 'fakenewsnbc', 'fakenewsfoxnews', 'mediaisfakenews', 'fakenewsreporters', 'foxnewsisfakenews', 'cbsfakenews',
-     'fakenewscdc', 'boycottfakenewsstations', 'covid19fakenews', 'msmisfakenews', 'fakenewspromoteschina', 'fakenewsepidemic', 'foxfakenews', 'trumpisfakenews', 
-     'chinafakenewscollusion2020', 'fakenewsmsnbc', 'fakenewsconspiracy', 'fakenewsalert', 'fakenewspandemic', 'fakenewstrump', 'fakenewsenemyofthepeople', 
-     'fakenewsdoctor', 'covidfakenews', 'corruptfakenews', 'lyingfakenewsmedia', 'fightingfakenews', 'stopspreadingfakenews', 'trumpcovid19isfakenews', 'originsoffakenews',
-     'foxistherealfakenews', 'stopfakenews', 'fakenewsclowns']
-chinavirus_hashtags = ['chinavirus', 'chinavirussesungguhnya', 'chinavirushide', 'terminatorchinavirus', 'chinaviruses', 'madeinchina', 'chinavirusmadeinchina', 
-     'madeinchinavirus', 'chinavirus19', 'chinavirustyranny', 'chinavirushoax', 'chinaviruscoverup', 'demchinavirus', 'chinavirus2020', 'covidisachinavirus', 'thechinavirus']
-propaganda_hashtags = ['covidpropaganda', 'propagandavirus', 'pandemicpropaganda', 'chinesepropaganda', 'chinacovidpropaganda', 'newssourcepropaganda', 'covid19propaganda']
-misc_hashtags = ['madagascar', 'madagascarcure', 'komeshacorona', 'stopbulos', 'bulo', 'bulos', 'merida', 'stopcovid', 'endtheshutdown', 'defundthefda', 'maskfree', 'biologicalwarfare', 'healthfreedom', 'dontstayathome', 'governmentcontrol', 'coronabs']
+                     'fakenewsshitshows', 'coronavirusisfakenews', 'fakenewsnbc', 'fakenewsfoxnews', 'mediaisfakenews', 'fakenewsreporters', 'foxnewsisfakenews', 'cbsfakenews',
+                     'fakenewscdc', 'boycottfakenewsstations', 'covid19fakenews', 'msmisfakenews', 'fakenewspromoteschina', 'fakenewsepidemic', 'foxfakenews', 'trumpisfakenews',
+                     'chinafakenewscollusion2020', 'fakenewsmsnbc', 'fakenewsconspiracy', 'fakenewsalert', 'fakenewspandemic', 'fakenewstrump', 'fakenewsenemyofthepeople',
+                     'fakenewsdoctor', 'covidfakenews', 'corruptfakenews', 'lyingfakenewsmedia', 'fightingfakenews', 'stopspreadingfakenews', 'trumpcovid19isfakenews', 'originsoffakenews',
+                     'foxistherealfakenews', 'stopfakenews', 'fakenewsclowns']
+chinavirus_hashtags = ['chinavirus', 'chinavirussesungguhnya', 'chinavirushide', 'terminatorchinavirus', 'chinaviruses', 'madeinchina', 'chinavirusmadeinchina',
+                       'madeinchinavirus', 'chinavirus19', 'chinavirustyranny', 'chinavirushoax', 'chinaviruscoverup', 'demchinavirus', 'chinavirus2020', 'covidisachinavirus', 'thechinavirus']
+propaganda_hashtags = ['covidpropaganda', 'propagandavirus', 'pandemicpropaganda',
+                       'chinesepropaganda', 'chinacovidpropaganda', 'newssourcepropaganda', 'covid19propaganda']
+misc_hashtags = ['madagascar', 'madagascarcure', 'komeshacorona', 'stopbulos', 'bulo', 'bulos', 'merida', 'stopcovid',
+                 'endtheshutdown', 'defundthefda', 'maskfree', 'biologicalwarfare', 'healthfreedom', 'dontstayathome', 'governmentcontrol', 'coronabs']
 
 with open(DATA_DIR / 'raw' / 'avax' / KEYWORDS_FILE, 'r') as f:
     avax_hashtags = [l.strip().lower() for l in f]
 
-ALL_HASHTAGS = set(plandemic_hashtags + scamdemic_hashtags + fakenews_hashtags + misc_hashtags + avax_hashtags)
+ALL_HASHTAGS = set(plandemic_hashtags + scamdemic_hashtags +
+                   fakenews_hashtags + misc_hashtags + avax_hashtags)
 
-covid_doesnt_exist = [("covid-19", "covid", "corona", "coronavirus"), ("covid-19 is fake", "covid is fake", "corona is fake", "coronavirus is fake", "covid-19 is not real", "covid is not real", "corona is not real", "coronavirus is not real", "covid-19 isn't real", "covid isn't real","corona isn't real", "coronavirus isn't real", "covid-19 doesn't exist", "covid doesn't exist", "corona doesn't exist", "coronavirus doesn't exist", "covid-19 do not exist", "covid do not exist", "corona do not exist", "coronavirus do not exist", "is overexaggerated")]
-covid_isnt_bad = [("covid-19", "covid", "corona", "coronavirus"), ("like the flu", "is flulike", "is flu-like", "not dangerous", "not deadly", "not a threat", "isn't that bad", "not bad", "is overexaggerated")]
-depopulation = [("covid-19", "covid", "corona", "coronavirus", "vaccine", "vaccines", "vaccination", "jab", "injection"), ("depopulation", "reduce the population", "kill people")]
-vaccine_causes_covid = [("covid-19", "covid", "corona", "coronavirus"), ("vaccine", "vaccines", "shot", "jab"), ("causes covid-19", "causes coronavirus","causes covid", "cause coronavirus", "cause Covid-19", "infect people with", "infects people with", "infects people with", "infect people with")]
-other_vaccines = [("covid-19", "covid", "corona", "coronavirus"), ("should use bleach", "can use bleach", "must use bleach", "should use chemicals", "can use chemicals", "must use chemicals")]
-vaccine_deadly = [("covid-19", "covid", "corona", "coronavirus"), ("vaccine", "vaccines", "vaccination", "jab", "injection"), ("kills", "will kill", "you will die", "is deadly")]
-vaccine_causes_autism = [("covid-19", "covid", "corona", "coronavirus"), ("vaccine", "vaccines", "vaccination", "jab", "injection"), ("causes autism", "does cause autism", "will cause autism", "creates autism")]
-vaccines_unsafe = [("covid-19", "covid", "corona", "coronavirus"), ("vaccine", "vaccines", "vaccination", "jab", "injection"), ("are unsafe", "are not safe")]
-vaccines_innefective = [("covid-19", "covid", "corona", "coronavirus"), ("vaccine", "vaccines", "vaccination", "jab", "injection"), ("don't work", "do not work", "ineffective", "not effective")]
-vaccine_ingredients = [("covid-19", "covid", "corona", "coronavirus"), ("vaccine", "vaccines", "vaccination", "jab", "injection"), ("contains", "contain", "have", "has"), ("aluminium", "mercury", "thimerosal", "aluminum", "microchip", "tracker")]
-vaccines_cause_infertility = [("covid-19", "covid", "corona", "coronavirus"), ("vaccine", "vaccines", "shot", "jab"), ("cause infertility", "causes infertility", "makes infertile", "want to sterilise", "want to sterilize", "going to sterilise", "going to sterilize", "make you sterile", "makes sterile")]
-vaccines_untested = [("covid-19", "covid", "corona", "coronavirus"), ("vaccine", "vaccines", "shot", "jab"), ("untested", "are rushed", "is rushed", "were rushed", "not tested")]
+covid_doesnt_exist = [("covid-19", "covid", "corona", "coronavirus"), ("covid-19 is fake", "covid is fake", "corona is fake", "coronavirus is fake", "covid-19 is not real", "covid is not real", "corona is not real", "coronavirus is not real", "covid-19 isn't real", "covid isn't real",
+                                                                       "corona isn't real", "coronavirus isn't real", "covid-19 doesn't exist", "covid doesn't exist", "corona doesn't exist", "coronavirus doesn't exist", "covid-19 do not exist", "covid do not exist", "corona do not exist", "coronavirus do not exist", "is overexaggerated")]
+covid_isnt_bad = [("covid-19", "covid", "corona", "coronavirus"), ("like the flu", "is flulike", "is flu-like",
+                                                                   "not dangerous", "not deadly", "not a threat", "isn't that bad", "not bad", "is overexaggerated")]
+depopulation = [("covid-19", "covid", "corona", "coronavirus", "vaccine", "vaccines",
+                 "vaccination", "jab", "injection"), ("depopulation", "reduce the population", "kill people")]
+vaccine_causes_covid = [("covid-19", "covid", "corona", "coronavirus"), ("vaccine", "vaccines", "shot", "jab"), ("causes covid-19", "causes coronavirus",
+                                                                                                                 "causes covid", "cause coronavirus", "cause Covid-19", "infect people with", "infects people with", "infects people with", "infect people with")]
+other_vaccines = [("covid-19", "covid", "corona", "coronavirus"), ("should use bleach", "can use bleach",
+                                                                   "must use bleach", "should use chemicals", "can use chemicals", "must use chemicals")]
+vaccine_deadly = [("covid-19", "covid", "corona", "coronavirus"), ("vaccine", "vaccines",
+                                                                   "vaccination", "jab", "injection"), ("kills", "will kill", "you will die", "is deadly")]
+vaccine_causes_autism = [("covid-19", "covid", "corona", "coronavirus"), ("vaccine", "vaccines", "vaccination",
+                                                                          "jab", "injection"), ("causes autism", "does cause autism", "will cause autism", "creates autism")]
+vaccines_unsafe = [("covid-19", "covid", "corona", "coronavirus"), ("vaccine",
+                                                                    "vaccines", "vaccination", "jab", "injection"), ("are unsafe", "are not safe")]
+vaccines_innefective = [("covid-19", "covid", "corona", "coronavirus"), ("vaccine", "vaccines",
+                                                                         "vaccination", "jab", "injection"), ("don't work", "do not work", "ineffective", "not effective")]
+vaccine_ingredients = [("covid-19", "covid", "corona", "coronavirus"), ("vaccine", "vaccines", "vaccination", "jab", "injection"),
+                       ("contains", "contain", "have", "has"), ("aluminium", "mercury", "thimerosal", "aluminum", "microchip", "tracker")]
+vaccines_cause_infertility = [("covid-19", "covid", "corona", "coronavirus"), ("vaccine", "vaccines", "shot", "jab"), ("cause infertility", "causes infertility",
+                                                                                                                       "makes infertile", "want to sterilise", "want to sterilize", "going to sterilise", "going to sterilize", "make you sterile", "makes sterile")]
+vaccines_untested = [("covid-19", "covid", "corona", "coronavirus"), ("vaccine", "vaccines",
+                                                                      "shot", "jab"), ("untested", "are rushed", "is rushed", "were rushed", "not tested")]
 
 boolean_search = [covid_doesnt_exist, covid_isnt_bad, depopulation, vaccine_causes_covid, other_vaccines, vaccine_deadly,
                   vaccine_causes_autism, vaccines_unsafe, vaccines_innefective, vaccine_ingredients, vaccines_cause_infertility, vaccines_untested]
@@ -53,12 +69,19 @@ c = conn.cursor()  # c handles select tweets
 c2 = conn.cursor()  # c2 handles deletion
 
 all_hashtags = pd.DataFrame(pd.read_sql_query(
-    'SELECT * FROM hashtags LIMIT 100', conn), columns=['tweet_id', 'hashtag'])
+    'SELECT * FROM hashtags', conn), columns=['tweet_id', 'hashtag'])
+all_hashtags['hashtag'] = all_hashtags['hashtag'].str.lower()
+all_hashtags = all_hashtags.set_index('tweet_id', drop=False)
+all_hashtags = all_hashtags.sort_index()
 
 
 def get_hashtags(tweet_id):
-    hashtags = all_hashtags[all_hashtags['tweet_id'] == tweet_id]['hashtag']
-    return set(map(lambda s: s.lower(), hashtags))
+    if tweet_id not in all_hashtags.index:
+        return set()
+    hashtags = all_hashtags.loc[tweet_id]['hashtag']
+    if isinstance(hashtags, str):
+        return set([hashtags])
+    return set(hashtags)
 
 
 def matches_boolean_search(text):
@@ -85,6 +108,13 @@ def get_total_tweets():
         return row[0]
 
 
+def set_overlap(a, b):
+    for item in a:
+        if item in b:
+            return True
+    return False
+
+
 c.execute('SELECT id, text FROM tweets;')
 total_yields = 0
 pbar = tqdm(enumerate(c), total=get_total_tweets())
@@ -93,7 +123,6 @@ for i, row in pbar:
     text = row[1]
 
     hashtags = get_hashtags(tweet_id)
-    print(hashtags)
     # check if tweet contains misinformation hashtags
     if hashtags & ALL_HASHTAGS:
         total_yields += 1
@@ -104,6 +133,7 @@ for i, row in pbar:
         continue
     # if this is not a misinfo tweet, delete
     c2.execute(f'DELETE FROM tweets WHERE id={tweet_id}')
-    pbar.set_postfix({'yield_rate': f'{total_yields / (i+1):.5f}'})
+    if i % 10000 == 0:
+        pbar.set_postfix({'yield_rate': f'{total_yields / (i+1):.5f}'})
 
 conn.commit()

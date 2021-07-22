@@ -10,7 +10,7 @@ import os
 
 
 DATA_DIR = Path(__file__).parent.parent / 'data'
-TWEETS_FILE = 'covid19_sample.db'
+TWEETS_FILE = 'covid19.db'
 DEMOGRAPHICS_FILE = 'counties.db'
 COVID_FILE = 'covid_data.db'
 DATASET = 'processed'
@@ -540,8 +540,6 @@ def random_split():
     input_cursor.execute(cmd)
     with open(DATA_DIR / 'temp.txt', 'w') as f:
         for i, row in enumerate(input_cursor):  # input_cursor:
-            if i > 10000:
-                break
             f.write(f'{row[0]}\n')
 
     with open(DATA_DIR / 'temp_shuf.txt', 'w') as f:
