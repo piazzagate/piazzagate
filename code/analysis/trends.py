@@ -158,7 +158,38 @@ def language_spread(conn):
     fig.savefig(DATA_DIR / 'analysis' / 'language_spread.png')
 
 
+def users_tweets_spread(conn):
+    cmd = '''SELECT users.id, COUNT(tweets.id) AS num_tweets FROM tweets
+    JOIN users ON users.id = tweets.user_id
+    GROUP BY users.id
+    ORDER BY num_tweets DESC'''
+
+    df = pd.read_sql_query(cmd, conn)
+    from collections import defaultdict
+    count = defaultdict(lambda: 0)
+    for _, row in df.iterrows():
+        count[row['num_tweets']] += 1
+
+    data = {'num_tweets': [], 'count': []}
+    for k, v in count.items():
+        data['num_tweets'].append(k)
+        data['count'].append(v)
+    df = pd.DataFrame.from_dict(data)
+    df.to_csv(DATA_DIR / 'analysis' / 'users_tweets_spread.csv', index=False)
+
+    x = ['1', '>1']
+    y = [df[df['num_tweets'] == 1]['count'].sum(), df[df['num_tweets'] > 1]
+         ['count'].sum()]
+
+    fig, ax = plt.subplots(figsize=(20, 10))
+    sns.barplot(x=x, y=y, ax=ax)
+    ax.set_title('# users posting a given # tweets')
+    ax.set(xlabel="# tweets", ylabel="# users")
+    fig.savefig(DATA_DIR / 'analysis' / 'users_tweets_spread.png')
+
+
 # tweets_by_county(conn)
 # tweets_by_state(conn)
 # tweets_over_time(conn)
-language_spread(conn)
+# language_spread(conn)
+users_tweets_spread(conn)
