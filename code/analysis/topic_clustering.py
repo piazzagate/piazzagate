@@ -26,7 +26,7 @@ def selected_topics(model, vectorizer, top_n=10):
 
 
 stop_words = list(ENGLISH_STOP_WORDS) + [
-    'https', 'covid', 'coronavirus',
+    'https', 'covid', 'coronavirus', 'amp'  # amp is &amp which is just &
 ]
 stop_words = frozenset(stop_words)
 
