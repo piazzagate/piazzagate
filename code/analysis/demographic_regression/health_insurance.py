@@ -2,7 +2,10 @@ from pathlib import Path
 from util import get_demographic_data, regression
 
 def main():
-    IND_VAR_NAMES = ['unemployment_rate']
+    IND_VAR_NAMES = ['percent_health_insurance',
+                    'percent_private_health_insurance',
+                    'percent_public_coverage',
+                    'percent_no_health_insurance']
 
     DEP_VAR_NAME = "num_tweets"
 

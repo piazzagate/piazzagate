@@ -32,16 +32,11 @@ def get_demographic_data(dataset):
                 feat = corr_matrix.columns[i]
                 corr_features.add(feat)
 
-    print(len(corr_features))
-
-    for feat in corr_features:
-        print(feat)
-
     df.drop(columns=corr_features, inplace=True)
 
     # Normalize columns
     scaler = MinMaxScaler()
-    norm = scaler.fit_transform(df)
+    norm = scaler.fit_transform(df.values)
     df = pd.DataFrame(norm, columns=df.columns)
 
     return df

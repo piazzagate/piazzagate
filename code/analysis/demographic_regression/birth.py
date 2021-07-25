@@ -2,7 +2,9 @@ from pathlib import Path
 from util import get_demographic_data, regression
 
 def main():
-    IND_VAR_NAMES = ['unemployment_rate']
+    IND_VAR_NAMES = ['percent_native_born',
+                    'percent_born_in_US',
+                    'percent_foreign_born']
 
     DEP_VAR_NAME = "num_tweets"
 
