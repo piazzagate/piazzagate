@@ -1,10 +1,12 @@
 import pandas as pd
 import sqlite3
+import sys
+sys.path.insert(1, 'code/analysis')
 from pathlib import Path
 from sklearn.preprocessing import MinMaxScaler
 from util import regression
 
-DATA_DIR = Path(__file__).parent.parent.parent.parent / 'data'
+DATA_DIR = Path(__file__).parent.parent.parent.parent.parent / 'data'
 
 def get_demographic_data(dataset):
     conn = sqlite3.connect(DATA_DIR / 'processed' / f'{dataset}.db')
@@ -42,7 +44,7 @@ def get_demographic_data(dataset):
     return df
 
 def main():
-    IND_VAR_NAMES = ['total_population',
+    ind_var_names = ['total_population',
                     'percent_male',
                     'percent_age_10_to_14',
                     'percent_age_15_to_19',
@@ -97,12 +99,12 @@ def main():
                     'percent_votes_green',
                     'percent_votes_other']
 
-    DEP_VAR_NAME = "num_tweets"
+    dep_var_names = "num_tweets"
 
     train_df = get_demographic_data('processed_random_train')
     test_df = get_demographic_data('processed_random_test')
 
-    mse_train, mse_test, rsquared_val = regression(train_df, test_df, IND_VAR_NAMES, DEP_VAR_NAME)
+    mse_train, mse_test, rsquared_val = regression(train_df, test_df, ind_var_names, dep_var_names)
 
     print('MSE (Train): ' + str(mse_train) + '\n' +
           'MSE (Test): ' + str(mse_test) + '\n' +

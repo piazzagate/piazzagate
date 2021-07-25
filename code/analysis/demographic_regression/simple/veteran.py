@@ -1,17 +1,19 @@
+import sys
 from pathlib import Path
+sys.path.insert(1, 'code/analysis')
 from util import get_demographic_data, regression
 
 def main():
-    IND_VAR_NAMES = ['mean_household_income']
+    ind_var_names = ['percent_civilian_veteran']
 
-    DEP_VAR_NAME = "num_tweets"
+    dep_var_names = "num_tweets"
 
-    data_dir = Path(__file__).parent.parent.parent.parent / 'data'
+    data_dir = Path(__file__).parent.parent.parent.parent.parent / 'data'
 
     train_df = get_demographic_data(data_dir, 'processed_random_train')
     test_df = get_demographic_data(data_dir, 'processed_random_test')
 
-    mse_train, mse_test, rsquared_val = regression(train_df, test_df, IND_VAR_NAMES, DEP_VAR_NAME)
+    mse_train, mse_test, rsquared_val = regression(train_df, test_df, ind_var_names, dep_var_names)
 
     print('MSE (Train): ' + str(mse_train) + '\n' +
           'MSE (Test): ' + str(mse_test) + '\n' +
