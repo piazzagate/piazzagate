@@ -1,5 +1,5 @@
-import matplotlib.pyplot as plt
 import pandas as pd
+import seaborn as sns
 import sqlite3
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_squared_error, r2_score
@@ -13,6 +13,23 @@ def get_demographic_data(data_dir, dataset):
                 (SELECT COUNT(t.fips)
                  FROM tweets AS t
                  WHERE t.fips = d.fips) AS num_tweets
+            FROM demographics AS d'''
+
+    # Replace NULL values with 0
+    df = pd.read_sql_query(cmd, conn).fillna(0)
+    # Drop fips, county, state columns
+    df.drop(columns=['fips', 'county', 'state'], inplace=True)
+
+    return df
+
+def get_normalized_demographic_data(data_dir, dataset):
+    conn = sqlite3.connect(data_dir / 'processed' / f'{dataset}.db')
+
+    cmd = '''SELECT
+                *,
+                (SELECT COUNT(t.fips)
+                    FROM tweets AS t
+                    WHERE t.fips = d.fips) AS num_tweets
             FROM demographics AS d'''
 
     # Replace NULL values with 0
@@ -42,14 +59,5 @@ def regression(train_df, test_df, ind_var_names, dep_var_name):
     mse_test = mean_squared_error(y_test, test_pred_vals)
 
     rsquared_val = r2_score(y_test, test_pred_vals)
-
-    # Plot outputs
-    # plt.scatter(X_test, y_test,  color='black')
-    # plt.plot(X_test, test_pred_vals, color='blue', linewidth=3)
-
-    # plt.xticks(())
-    # plt.yticks(())
-
-    # plt.show()
     
     return mse_train, mse_test, rsquared_val

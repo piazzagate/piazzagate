@@ -1,7 +1,18 @@
+import matplotlib.pyplot as plt
+import seaborn as sns
 import sys
 from pathlib import Path
 sys.path.insert(1, 'code/analysis')
-from util import get_demographic_data, regression
+from util import get_demographic_data, get_normalized_demographic_data, regression
+
+def histogram(feature, dataset, data_dir):
+    fig, ax = plt.subplots()
+    sns.histplot(data=dataset, x=feature, bins=30)
+    ax.set(xlabel=feature)
+
+    outfile = feature + '.png'
+
+    fig.savefig(data_dir / 'analysis' / 'demographics' / 'histograms' / outfile)
 
 def main():
     all_features = ['total_population',
@@ -81,27 +92,34 @@ def main():
     dep_var_names = "num_tweets"
 
     data_dir = Path(__file__).parent.parent.parent.parent / 'data'
+    train_df = get_normalized_demographic_data(data_dir, 'processed_random_train')
+    test_df = get_normalized_demographic_data(data_dir, 'processed_random_test')
+    # Data for lineplot
+    plot_data = get_demographic_data(data_dir, 'processed_random_train')
 
-    train_df = get_demographic_data(data_dir, 'processed_random_train')
-    test_df = get_demographic_data(data_dir, 'processed_random_test')
-
-    stats = dict.fromkeys(['MSE Train', 'MSE Test', 'R-squared'])
-    regressions = dict.fromkeys(all_features, stats)
+    regressions = dict.fromkeys(all_features)
 
     for feat in all_features:
-        ind_var_names = [feat]
+        # ind_var_names = [feat]
+        # mse_train, mse_test, rsquared_val = regression(train_df, test_df, ind_var_names, dep_var_names)
+        # regressions[feat] = {'MSE Train': mse_train, 'MSE Test': mse_test, 'R-squared': rsquared_val}
 
-        mse_train, mse_test, rsquared_val = regression(train_df, test_df, ind_var_names, dep_var_names)
+        # Create lineplot
+        fig, ax = plt.subplots(figsize=(40, 10))
+        sns.lineplot(data=plot_data, x=feat, y=dep_var_names, ax=ax)
+        ax.set(xlabel=feat, ylabel="Number of Tweets")
+        fig.savefig(data_dir / 'analysis' / 'demographics' / 'lineplots' / f'{feat}.png')
 
-        regressions[feat]['MSE Train'] = mse_train
-        regressions[feat]['MSE Test'] = mse_test
-        regressions[feat]['R-squared'] = rsquared_val
+        # Create histogram
+        histogram(feat, train_df, data_dir)
 
-    for reg in regressions.items():
-        print(reg[0])
-        for stat in reg[1].items():
-            print(stat)
-        print('\n')
+    # # Print stats
+    # for reg in regressions.items():
+    #     print(reg[0])
+    #     for stat in reg[1].items():
+    #         print(stat)
+            
+    #     print('\n')
 
 if __name__ == "__main__":
     main()
