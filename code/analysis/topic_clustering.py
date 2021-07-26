@@ -6,6 +6,7 @@ from pathlib import Path
 import pandas as pd
 import pyLDAvis.sklearn
 import pyLDAvis
+import string
 
 DATA_DIR = Path(__file__).parent.parent.parent / 'data'
 DATASET = 'processed_random_train'
@@ -31,10 +32,25 @@ stop_words = list(ENGLISH_STOP_WORDS) + [
 stop_words = frozenset(stop_words)
 
 
+def strip_all_entities(text):
+    entity_prefixes = ['@', '#']
+    for separator in string.punctuation:
+        if separator not in entity_prefixes:
+            text = text.replace(separator, ' ')
+    words = []
+    for word in text.split():
+        word = word.strip()
+        if word:
+            if word[0] not in entity_prefixes:
+                words.append(word)
+    return ' '.join(words)
+
+
 def model_lda(conn, n_topics=8):
     cmd = '''SELECT text FROM tweets'''
 
     df = pd.read_sql_query(cmd, conn)
+    df['text'] = df['text'].map(strip_all_entities)
     texts = list(df['text'])
     vectorizer = CountVectorizer(min_df=2, max_df=0.9, stop_words=stop_words,
                                  lowercase=True, token_pattern='[a-zA-Z\-][a-zA-Z\-]{2,}')
