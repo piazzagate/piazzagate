@@ -1,5 +1,6 @@
 import sqlite3
 from pathlib import Path
+import numpy as np
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
@@ -8,6 +9,7 @@ from urllib.request import urlopen
 import json
 import plotly.express as px
 from langcodes import Language
+from sklearn.linear_model import LinearRegression
 
 with urlopen('https://raw.githubusercontent.com/plotly/datasets/master/geojson-counties-fips.json') as response:
     counties = json.load(response)
@@ -92,6 +94,54 @@ def tweets_by_county(conn):
     fig.write_image(DATA_DIR / 'analysis' /
                     'tweets_by_county.png', width=20*300, height=10*300)
     df.to_csv(DATA_DIR / 'analysis' / 'tweets_by_county.csv', index=False)
+
+
+def tweets_rate(conn):
+    cmd = '''SELECT demographics.fips, demographics.state, demographics.county, demographics.total_population, COUNT(tweets.id) AS num_tweets, demographics.percent_votes_democrat, demographics.percent_votes_republican FROM demographics 
+    JOIN tweets ON tweets.fips = demographics.fips
+    GROUP BY demographics.fips
+    ORDER BY COUNT(tweets.id) DESC'''
+
+    df = pd.read_sql_query(cmd, conn)
+    df['tweet_rate'] = df['num_tweets'] * 1000000 / df['total_population']
+    df = df.dropna()
+    df = df.sort_values('tweet_rate', ascending=False)
+    df.to_csv(DATA_DIR / 'analysis' / 'tweets_rate.csv', index=False)
+
+    fig, ax = plt.subplots(figsize=(20, 10))
+    sns.scatterplot(data=df, x='percent_votes_democrat',
+                    y='tweet_rate', alpha=0.5, ax=ax)
+    ax.set(xlabel="% votes for Democrats in 2020 election",
+           ylabel="# misinformation tweets per million people")
+    ax.set_title(
+        '# misinformation tweets per million people based on political leaning for each county')
+    fig.savefig(DATA_DIR / 'analysis' / 'tweets_rate_by_party_democrat.png')
+
+    fig, ax = plt.subplots(figsize=(20, 10))
+    sns.scatterplot(data=df, x='percent_votes_republican',
+                    y='tweet_rate', alpha=0.5, ax=ax)
+    ax.set(xlabel="% votes for Republicans in 2020 election",
+           ylabel="# misinformation tweets per million people")
+    ax.set_title(
+        '# misinformation tweets per million people based on political leaning for each county')
+
+    X = np.array(df['percent_votes_republican'])[::, np.newaxis]
+    y = np.array(df['tweet_rate'])
+    reg = LinearRegression().fit(X, y)
+    print('Coefficients: \n', reg.coef_)
+    print('Coefficient of determination: %.2f'
+          % reg.score(X, y))
+    ax.plot(X, reg.predict(X), color='blue', linewidth=3)
+    fig.savefig(DATA_DIR / 'analysis' / 'tweets_rate_by_party_republican.png')
+
+    fig, ax = plt.subplots(figsize=(20, 10))
+    sns.scatterplot(data=df, x='total_population',
+                    y='tweet_rate', alpha=0.5, ax=ax)
+    ax.set(xlabel="County population",
+           ylabel="# misinformation tweets per million people")
+    ax.set_title(
+        '# misinformation tweets per million people based on county population')
+    fig.savefig(DATA_DIR / 'analysis' / 'tweets_rate_by_population.png')
 
 
 def tweets_by_state(conn):
@@ -189,7 +239,8 @@ def users_tweets_spread(conn):
 
 
 # tweets_by_county(conn)
+tweets_rate(conn)
 # tweets_by_state(conn)
 # tweets_over_time(conn)
 # language_spread(conn)
-users_tweets_spread(conn)
+# users_tweets_spread(conn)
