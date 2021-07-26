@@ -48,12 +48,12 @@ def tweet_stats_regression(df, outfile):
     # f.write(reg.summary().to_text())
     # f.close()
 
-def histograms():
+def histograms(df):
     features = ['retweet_count', 'favorite_count', 'verified', 'follower_count']
     plt_idxs = [(0,0),(0,1),(1,0),(1,1)]
 
     fig, axs = plt.subplots(2, 2, figsize=(8,8), sharey=True)
-    fig.suptitle('Histograms for tweet stats plotted on a log scale')
+    fig.suptitle('Histograms for tweet stats plotted on a log scale', fontsize=24)
     plt.ylabel('Count')
     for feature, (i, j) in zip(features, plt_idxs):
         ax = axs[i][j]
@@ -62,7 +62,40 @@ def histograms():
 
     fig.savefig(GRAPH_DIR / 'tweet_stat_histograms.png')
 
+def tweet_stat_scatterplots(df):
+    features = ['favorite_count', 'verified', 'follower_count']
+
+    fig, axs = plt.subplots(1, 3, figsize=(15, 5), sharey=True)
+    fig.suptitle('Scatterplots: retweet count vs. 3 tweet stats', fontsize=24)
+    plt.ylabel('retweet count')
+    for i, feature in enumerate(features):
+        ax = axs[i]
+        sns.scatterplot(data=df, x=feature, y='retweet_count', alpha=0.3, ax=ax)
+        ax.set(xlabel=feature)
+
+    fig.savefig(GRAPH_DIR / 'tweet_stat_scatterplots.png')
+
+def demographic_scatterplots(df):
+    tweets_per_county = df.groupby(['fips'])
+    mean_retweet_count = tweets_per_county['retweet_count'].mean()
+
+    features = ['total_population', 'median_age', 'unemployment_rate', 'per_capita_income', 'percent_high_school_graduate', 
+                'percent_households_with_Internet', 'percent_votes_democrat', 'percent_votes_republican']
+    plt_idxs = [(0,0),(0,1),(0,2),(1,0),(1,1),(1,2),(2,0),(2,1)]
+
+    fig, axs = plt.subplots(3, 3, figsize=(12, 11), sharey=True)
+    fig.suptitle('Scatterplots: averate retweet count per county vs. county stats', fontsize=24)
+    plt.ylabel('retweet count')
+    for feature, (i,j) in zip(features, plt_idxs):
+        ax = axs[i][j]
+        sns.scatterplot(x=tweets_per_county[feature].mean(), y=mean_retweet_count, alpha=0.3, ax=ax)
+        ax.set(xlabel=feature)
+
+    fig.savefig(GRAPH_DIR / 'demographic_scatterplots.png')
+
 df = get_data(TRAIN_DATASET)
 
 #tweet_stats_regression(df, GRAPH_DIR / 'tweet_stats_regression')
-histograms()
+#histograms(df)
+#tweet_stat_scatterplots(df)
+demographic_scatterplots(df)
