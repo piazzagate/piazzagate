@@ -98,15 +98,24 @@ def tweets_by_county(conn):
 
 def tweets_rate(conn):
     cmd = '''SELECT demographics.fips, demographics.state, demographics.county, demographics.total_population, COUNT(tweets.id) AS num_tweets, demographics.percent_votes_democrat, demographics.percent_votes_republican FROM demographics 
-    JOIN tweets ON tweets.fips = demographics.fips
+    LEFT JOIN tweets ON tweets.fips = demographics.fips
     GROUP BY demographics.fips
     ORDER BY COUNT(tweets.id) DESC'''
 
     df = pd.read_sql_query(cmd, conn)
     df['tweet_rate'] = df['num_tweets'] * 1000000 / df['total_population']
+    df['fips'] = df['fips'].map(lambda fip: f'{fip:05d}')
     df = df.dropna()
     df = df.sort_values('tweet_rate', ascending=False)
     df.to_csv(DATA_DIR / 'analysis' / 'tweets_rate.csv', index=False)
+
+    fig = px.choropleth(df, geojson=counties, locations='fips',
+                        color='tweet_rate', scope='usa', labels={'num_tweets': '# tweets per million people'}, color_continuous_scale='Blues')
+    fig.write_image(DATA_DIR / 'analysis' /
+                    'tweets_rate_per_county.png', width=20*300, height=10*300)
+
+    # filter off rows with no tweets
+    df = df[df['num_tweets'] > 0]
 
     fig, ax = plt.subplots(figsize=(20, 10))
     sns.scatterplot(data=df, x='percent_votes_democrat',
@@ -128,7 +137,7 @@ def tweets_rate(conn):
     X = np.array(df['percent_votes_republican'])[::, np.newaxis]
     y = np.array(df['tweet_rate'])
     reg = LinearRegression().fit(X, y)
-    print('Coefficients: \n', reg.coef_)
+    print('Coefficients: ', reg.coef_)
     print('Coefficient of determination: %.2f'
           % reg.score(X, y))
     ax.plot(X, reg.predict(X), color='blue', linewidth=3)
@@ -156,11 +165,19 @@ def tweets_by_state(conn):
 
     df = pd.read_sql_query(cmd, conn)
     df['state'] = df['state'].map(lambda x: us_state_abbrev[x])
+    df['tweet_rate'] = df['num_tweets'] * 1000000 / df['total_population']
+
     fig = px.choropleth(locations=df['state'], locationmode='USA-states', color=df['num_tweets'],
                         scope='usa', labels={'color': '# Tweets'}, color_continuous_scale='Blues')
     fig.write_image(DATA_DIR / 'analysis' /
                     'tweets_by_state.png', width=20*300, height=10*300)
     df.to_csv(DATA_DIR / 'analysis' / 'tweets_by_state.csv', index=False)
+
+    fig = px.choropleth(locations=df['state'], locationmode='USA-states', color=df['tweet_rate'],
+                        scope='usa', labels={'color': '# tweets per million people'}, color_continuous_scale='Blues')
+    fig.write_image(DATA_DIR / 'analysis' /
+                    'tweets_rate_by_state.png', width=20*300, height=10*300)
+    df.to_csv(DATA_DIR / 'analysis' / 'tweets_rate_by_state.csv', index=False)
 
 
 def tweets_over_time(conn):
@@ -240,7 +257,7 @@ def users_tweets_spread(conn):
 
 # tweets_by_county(conn)
 tweets_rate(conn)
-# tweets_by_state(conn)
+tweets_by_state(conn)
 # tweets_over_time(conn)
 # language_spread(conn)
 # users_tweets_spread(conn)
