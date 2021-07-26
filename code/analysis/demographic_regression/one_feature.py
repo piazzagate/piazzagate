@@ -104,16 +104,16 @@ def main():
         # mse_train, mse_test, rsquared_val = regression(train_df, test_df, ind_var_names, dep_var_names)
         # regressions[feat] = {'MSE Train': mse_train, 'MSE Test': mse_test, 'R-squared': rsquared_val}
 
-        # Create lineplot
+        # Create scatter plot and regression
         fig, ax = plt.subplots(figsize=(40, 10))
-        sns.lineplot(data=plot_data, x=feat, y=dep_var_names, ax=ax)
+        sns.regplot(data=plot_data, x=feat, y=dep_var_names, scatter=True, fit_reg=True, ax=ax)
         ax.set(xlabel=feat, ylabel="Number of Tweets")
-        fig.savefig(data_dir / 'analysis' / 'demographics' / 'lineplots' / f'{feat}.png')
+        fig.savefig(data_dir / 'analysis' / 'demographics' / 'plots' / f'{feat}.png')
 
         # Create histogram
         histogram(feat, train_df, data_dir)
 
-    # # Print stats
+        # Print stats
     # for reg in regressions.items():
     #     print(reg[0])
     #     for stat in reg[1].items():
