@@ -1,6 +1,7 @@
 import sqlite3
 from pathlib import Path
 import pandas as pd
+import numpy as np
 from sklearn import preprocessing
 import seaborn as sns
 import matplotlib.pyplot as plt
@@ -36,17 +37,17 @@ def tweet_stats_regression(df, outfile):
                     columns=['fips', 'retweet_count', 'favorite_count', 'verified', 'follower_count', 'total_population', 
                         'median_age', 'unemployment_rate', 'per_capita_income', 'percent_high_school_graduate', 
                         'percent_households_with_Internet', 'percent_votes_democrat', 'percent_votes_republican'])
-    # independent variables for tweet and demographic stats regression
-    #ind_vars = ['favorite_count', 'verified', 'follower_count', 'total_population', 'median_age', 'unemployment_rate', 
-    #            'per_capita_income', 'percent_high_school_graduate', 'percent_households_with_Internet', 'percent_votes_democrat', 'percent_votes_republican']
+    # independent variables for demographic stats regression
+    #ind_vars = ['total_population', 'median_age', 'unemployment_rate', 'per_capita_income', 'percent_high_school_graduate', 'percent_households_with_Internet', 'percent_votes_democrat', 'percent_votes_republican']
     # independent variables for tweet stats regression
-    ind_vars = ['favorite_count', 'verified', 'follower_count']
+    #ind_vars = ['favorite_count', 'verified', 'follower_count']
+    ind_vars = 'per_capita_income'
     dep_var = 'retweet_count'
-    reg, mse_train, mse_test, rsquared_val = util.regression(train_data, test_data, ind_vars, dep_var)
+    res, mse_train, mse_test, rsquared_val = util.regression(train_data, test_data, ind_vars, dep_var)
 
-    # f = open(outfile, 'w')
-    # f.write(reg.summary().to_text())
-    # f.close()
+    f = open(outfile, 'w')
+    f.write(res.summary().to_text())
+    f.close()
 
 def histograms(df):
     features = ['retweet_count', 'favorite_count', 'verified', 'follower_count']
@@ -75,27 +76,35 @@ def tweet_stat_scatterplots(df):
 
     fig.savefig(GRAPH_DIR / 'tweet_stat_scatterplots.png')
 
-def demographic_scatterplots(df):
+def retweet_cnt_demographic_scatterplots(df):
     tweets_per_county = df.groupby(['fips'])
     mean_retweet_count = tweets_per_county['retweet_count'].mean()
 
-    features = ['total_population', 'median_age', 'unemployment_rate', 'per_capita_income', 'percent_high_school_graduate', 
-                'percent_households_with_Internet', 'percent_votes_democrat', 'percent_votes_republican']
-    plt_idxs = [(0,0),(0,1),(0,2),(1,0),(1,1),(1,2),(2,0),(2,1)]
+    # OLD 
+    # features = ['total_population', 'median_age', 'unemployment_rate', 'per_capita_income', 'percent_high_school_graduate', 
+    #             'percent_households_with_Internet', 'percent_votes_democrat', 'percent_votes_republican']
+    # plt_idxs = [(0,0),(0,1),(0,2),(1,0),(1,1),(1,2),(2,0),(2,1)]
 
-    fig, axs = plt.subplots(3, 3, figsize=(12, 11), sharey=True)
-    fig.suptitle('Scatterplots: averate retweet count per county vs. county stats', fontsize=24)
-    plt.ylabel('retweet count')
+    # NEW
+    features = ['total_population', 'per_capita_income', 'percent_high_school_graduate', 
+                'percent_households_with_Internet', 'percent_votes_democrat', 'percent_votes_republican']
+    plt_idxs = [(0,0),(0,1),(0,2),(1,0),(1,1),(1,2)]
+
+    fig, axs = plt.subplots(2, 3, figsize=(10, 8), sharey=True)
+    fig.suptitle('Avg. retweet count per county vs. county statistics', fontsize=24)
     for feature, (i,j) in zip(features, plt_idxs):
         ax = axs[i][j]
-        sns.scatterplot(x=tweets_per_county[feature].mean(), y=mean_retweet_count, alpha=0.3, ax=ax)
-        ax.set(xlabel=feature)
+        sns.scatterplot(x=tweets_per_county[feature].mean(), y=mean_retweet_count, alpha=0.2, ax=ax)
+        m, b = np.polyfit(tweets_per_county[feature].mean(), mean_retweet_count, 1)
+        ax.plot(tweets_per_county[feature].mean(), m*tweets_per_county[feature].mean() + b, label=f'{np.round(m, 3)}x + {int(b)}')
+        ax.set(xlabel=feature.replace('_', ' '), ylabel='mean retweet count per county')
+        ax.legend(loc='upper right')
 
-    fig.savefig(GRAPH_DIR / 'demographic_scatterplots.png')
+    fig.savefig(GRAPH_DIR / 'official_demographic_scatterplots.png')
 
 df = get_data(TRAIN_DATASET)
 
 #tweet_stats_regression(df, GRAPH_DIR / 'tweet_stats_regression')
 #histograms(df)
 #tweet_stat_scatterplots(df)
-demographic_scatterplots(df)
+retweet_cnt_demographic_scatterplots(df)
