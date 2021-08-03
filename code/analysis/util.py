@@ -10,13 +10,14 @@ def get_demographic_data(data_dir, dataset):
 
     cmd = '''SELECT
                 *,
-                (SELECT COUNT(t.fips)
+                (SELECT COUNT(t.fips) * 1000000 / d.total_population
                  FROM tweets AS t
-                 WHERE t.fips = d.fips) AS num_tweets
-            FROM demographics AS d'''
+                 WHERE t.fips = d.fips) AS tweet_rate
+            FROM demographics AS d
+            WHERE tweet_rate != 0'''
 
-    # Replace NULL values with 0
-    df = pd.read_sql_query(cmd, conn).fillna(0)
+    # Drop NULL values
+    df = pd.read_sql_query(cmd, conn).dropna()
     # Drop fips, county, state columns
     df.drop(columns=['fips', 'county', 'state'], inplace=True)
 
@@ -27,13 +28,14 @@ def get_normalized_demographic_data(data_dir, dataset):
 
     cmd = '''SELECT
                 *,
-                (SELECT COUNT(t.fips)
-                    FROM tweets AS t
-                    WHERE t.fips = d.fips) AS num_tweets
-            FROM demographics AS d'''
+                (SELECT COUNT(t.fips) * 1000000 / d.total_population
+                 FROM tweets AS t
+                 WHERE t.fips = d.fips) AS tweet_rate
+            FROM demographics AS d
+            WHERE tweet_rate != 0'''
 
-    # Replace NULL values with 0
-    df = pd.read_sql_query(cmd, conn).fillna(0)
+    # Drop NULL values
+    df = pd.read_sql_query(cmd, conn).dropna()
     # Drop fips, county, state columns
     df.drop(columns=['fips', 'county', 'state'], inplace=True)
 
@@ -44,26 +46,14 @@ def get_normalized_demographic_data(data_dir, dataset):
 
     return df
 
-def regression(train_df, test_df, ind_var_names, dep_var_name):
-    X_train = train_df[ind_var_names].to_numpy()
-    X_test = test_df[ind_var_names].to_numpy()
-    y_train = train_df[dep_var_name].to_numpy()
-    y_test = test_df[dep_var_name].to_numpy()
+def regression(df, ind_var_names, dep_var_name):
+    X = df[ind_var_names].to_numpy()
+    y = df[dep_var_name].to_numpy()
     
-    X_train = sm.add_constant(X_train)
-    X_test = sm.add_constant(X_test)
+    X = sm.add_constant(X)
 
-    mod = sm.OLS(y_train, X_train)
+    mod = sm.OLS(y, X)
     res = mod.fit()
 
-    train_pred_vals = res.predict(X_train)
-    mse_train = eval_measures.mse(y_train, train_pred_vals)
-
-    test_pred_vals = res.predict(X_test)
-    mse_test = eval_measures.mse(y_test, test_pred_vals)
-
-    rsquared_val = r2_score(y_test, test_pred_vals)
-
+    print(ind_var_names)
     print(res.summary())
-    
-    return mse_train, mse_test, rsquared_val
