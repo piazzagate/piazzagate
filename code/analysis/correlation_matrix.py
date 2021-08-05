@@ -39,6 +39,6 @@ def generate_correlation_matrix(data, title, outfile, figsize):
     ax.set(title=f"Correlation matrix for {title} data")
     fig.savefig(DATA_DIR / 'analysis' / outfile)
 
-#generate_correlation_matrix(get_demographic_data(conn), "demographic", "demographic_correlations.png", figsize=(60,48))
-#generate_correlation_matrix(get_covid_data(conn), "covid-19 cases/deaths/vaccination", "covid_correlations.png", figsize=(15,10))
+generate_correlation_matrix(get_demographic_data(conn), "demographic", "demographic_correlations.png", figsize=(60,48))
+generate_correlation_matrix(get_covid_data(conn), "covid-19 cases/deaths/vaccination", "covid_correlations.png", figsize=(15,10))
 generate_correlation_matrix(get_tweet_data(conn), "tweet/author statistics", "tweet_stats_correlations.png", figsize=(15,10))
