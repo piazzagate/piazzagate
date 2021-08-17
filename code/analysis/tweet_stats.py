@@ -13,13 +13,14 @@ DATA_DIR = Path(__file__).parent.parent.parent / 'data'
 GRAPH_DIR = DATA_DIR / 'analysis'
 TRAIN_DATASET = 'processed_random_train'
 TEST_DATASET = 'processed_random_test'
+ALT_DATASET = 'unfiltered'
 
 def get_data(dataset):
     conn = sqlite3.connect(DATA_DIR / 'processed' / f'{dataset}.db')
     cmd = '''
     SELECT tweets.fips, tweets.retweet_count, tweets.favorite_count, users.verified, users.follower_count, 
         demographics.total_population, demographics.median_age, demographics.unemployment_rate, demographics.per_capita_income,
-        demographics.percent_high_school_graduate, demographics.percent_households_with_Internet, 
+        demographics.percent_bachelors_degree_or_higher, demographics.percent_households_with_Internet, 
         demographics.percent_votes_democrat, demographics.percent_votes_republican
     FROM tweets JOIN users ON tweets.user_id = users.id JOIN demographics on tweets.fips = demographics.fips'''
 
@@ -35,7 +36,7 @@ def multiple_regression(df, ind_vars, remove_0):
 
     data = pd.DataFrame(min_max_scaler.fit_transform(df.values), 
             columns=['fips', 'retweet_count', 'favorite_count', 'verified', 'follower_count', 'total_population', 
-                'median_age', 'unemployment_rate', 'per_capita_income', 'percent_high_school_graduate', 
+                'median_age', 'unemployment_rate', 'per_capita_income', 'percent_bachelors_degree_or_higher', 
                 'percent_households_with_Internet', 'percent_votes_democrat', 'percent_votes_republican'])
     
     dep_var = 'retweet_count'
@@ -111,32 +112,64 @@ def ttest(df):
 
     print(tstats, pvalue)
 
-df = get_data(TRAIN_DATASET)
+def hypothesis_testing(df, remove_0):
+    print(f'Running demographics (retweet count) analysis')
+
+    dep_var = 'retweet_count'
+    if remove_0: df = df[df[dep_var] > 0]
+
+    min_max_scaler = preprocessing.MinMaxScaler()
+    df = pd.DataFrame(min_max_scaler.fit_transform(df.values), 
+            columns=['fips', 'retweet_count', 'favorite_count', 'verified', 'follower_count', 'total_population', 
+                'median_age', 'unemployment_rate', 'per_capita_income', 'percent_bachelors_degree_or_higher', 
+                'percent_households_with_Internet', 'percent_votes_democrat', 'percent_votes_republican'])
+
+    #print('- Politics')
+    #util.regression(df,['per_capita_income','percent_votes_republican'],dep_var)
+    #util.regression(df,['per_capita_income','percent_votes_democrat'],dep_var)
+
+    #print('- Education')
+    #util.regression(df,['per_capita_income','percent_bachelors_degree_or_higher','percent_votes_republican'],dep_var)
+    #util.regression(df,['per_capita_income','percent_bachelors_degree_or_higher','percent_votes_democrat'],dep_var)
+
+    print('- Tweet Stats + Politics')
+    util.regression(df,['per_capita_income','percent_votes_republican','favorite_count'],dep_var)
+    util.regression(df,['per_capita_income','percent_votes_democrat','favorite_count'],dep_var)
+
+    print('- Tweet Stats + Education')
+    util.regression(df,['per_capita_income','percent_bachelors_degree_or_higher','percent_votes_republican','favorite_count'],dep_var)
+    util.regression(df,['per_capita_income','percent_bachelors_degree_or_higher','percent_votes_democrat','favorite_count'],dep_var)
+
+train_df = get_data(TRAIN_DATASET)
+test_df = get_data(TEST_DATASET)
+alt_df = get_data(ALT_DATASET)
+
+remove_0s = True
+#hypothesis_testing(alt_df, remove_0s)
+#ttest(df)
 
 #histograms(df)
 #tweet_stat_scatterplots(df)
 #retweet_cnt_demographic_scatterplots(df)
-#ttest(df)
 
 # INDEPENDENT VARIABLE OPTIONS FOR MULTIPLE REGRESSION
 
 # demographic stats regression
-#ind_vars = ['total_population', 'median_age', 'unemployment_rate', 'per_capita_income', 'percent_high_school_graduate', 'percent_households_with_Internet', 'percent_votes_democrat', 'percent_votes_republican']
+#ind_vars = ['total_population', 'median_age', 'unemployment_rate', 'per_capita_income', 'percent_bachelors_degree_or_higher', 'percent_households_with_Internet', 'percent_votes_democrat', 'percent_votes_republican']
 
 # official demographic stats regression
-#ind_vars = ['total_population', 'per_capita_income', 'percent_high_school_graduate', 'percent_households_with_Internet', 'percent_votes_democrat', 'percent_votes_republican']
+#ind_vars = ['total_population', 'per_capita_income', 'percent_bachelors_degree_or_higher', 'percent_households_with_Internet', 'percent_votes_democrat', 'percent_votes_republican']
 
 # official demographic + tweet stats regression
-#ind_vars = ['favorite_count', 'verified', 'percent_votes_republican', 'total_population', 'per_capita_income', 'percent_high_school_graduate', 'percent_households_with_Internet', 'percent_votes_democrat', 'percent_votes_republican']
+#ind_vars = ['favorite_count', 'verified', 'follower_count', 'total_population', 'per_capita_income', 'percent_bachelors_degree_or_higher', 'percent_households_with_Internet', 'percent_votes_democrat', 'percent_votes_republican']
 
 # tweet stats regression
-#ind_vars = ['favorite_count', 'verified', 'percent_votes_republican']
+#ind_vars = ['favorite_count', 'verified', 'follower_count']
 
 # tweet stats + 1 demographic stat regression
 #ind_vars = ['favorite_count', 'verified', 'follower_count', 'percent_votes_democrat']
 
 # simple regression
-#ind_vars = 'percent_votes_republican'
+ind_vars = 'per_capita_income'
 
-remove_0 = True
-multiple_regression(df, ind_vars, remove_0)
+multiple_regression(alt_df, ind_vars, remove_0s)
